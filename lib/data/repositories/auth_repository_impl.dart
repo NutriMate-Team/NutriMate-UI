@@ -38,7 +38,16 @@ class AuthRepositoryImpl implements AuthRepository{
   Future<Either<Failure, String>> login({
     required String email,
     required String password,
-  }) {
-    throw UnimplementedError();
+  }) async {
+    try {
+      final token = await remoteDatasource.login(email, password);
+      return Right(token);
+    }on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on Exception {
+      return Left(const ConnectionFailure());
+    }
   }
+  
+
 }

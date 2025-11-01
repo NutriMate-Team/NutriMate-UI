@@ -1,93 +1,104 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import './core/network/network_info.dart';
-import './data/datasources/auth_local_datasource.dart';
-import './presentation/screens/auth/login_screen.dart'; 
-import './presentation/providers/auth_provider.dart';
-import './domain/usecases/login_user.dart';
-import './domain/usecases/register_user.dart';
-import './domain/repositories/auth_repository.dart';
-import './data/repositories/auth_repository_impl.dart';
-import './data/datasources/auth_remote_datasource.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+// Import Core
+import 'core/network/network_info.dart';
+import 'core/services/secure_storage_service.dart';
+import 'core/error/failures.dart'; 
+// Import Data
+import 'data/datasources/auth_local_datasource.dart';
+import 'data/datasources/auth_remote_datasource.dart';
+import 'data/repositories/auth_repository_impl.dart';
+// Import Domain
+import 'domain/repositories/auth_repository.dart';
+import 'domain/usecases/login_user.dart';
+import 'domain/usecases/register_user.dart';
+import 'domain/entities/user.dart'; 
+// Import Presentation
+import 'presentation/screens/auth/login_screen.dart'; 
+import 'presentation/providers/auth_provider.dart';
+
+import 'core/error/exceptions.dart'; 
+
 
 void main() async {
-
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // === EXTERNAL DEPENDENCIES ===
   final sharedPreferences = await SharedPreferences.getInstance();
-
   final httpClient = http.Client();
   final connectivity = Connectivity(); 
+  const secureStorage = FlutterSecureStorage();
 
+  // Core Services
+  final storageService = SecureStorageService(secureStorage);
+
+  // === MANUAL DEPENDENCY INJECTION (DI) ===
+  // Core Services 
+  final networkInfo = NetworkInfoImpl(connectivity);
+
+  // 2. Data Sources
+  final authRemoteDatasource = AuthRemoteDatasourceImpl(httpClient);
+  final authLocalDataSource = AuthLocalDataSourceImpl(sharedPreferences);
+
+  // 3. Repository
+  final authRepository = AuthRepositoryImpl(
+    remoteDatasource: authRemoteDatasource, 
+    localDataSource: authLocalDataSource, 
+    networkInfo: networkInfo, 
+  );
+
+  // 4. Use Cases
+  final loginUser = LoginUser(authRepository);
+  final registerUser = RegisterUser(authRepository);
+  
+  // 5. Auth Provider 
+  final authProvider = AuthProvider(
+    loginUser: loginUser,
+    registerUser: registerUser,
+    storageService: storageService,
+    // THÊM: AuthRepository, nếu Provider của bạn cần nó
+    // authRepository: authRepository, 
+  );
+  
+  await authProvider.tryAutoLogin(); 
+  
   runApp(
     MultiProvider(
       providers: [
-        Provider<http.Client>(
-          create: (_) => httpClient,
-          dispose: (_, client) => client.close(), 
-        ),
-        Provider<SharedPreferences>(
-          create: (_) => sharedPreferences,
-        ),
-        Provider<Connectivity>(
-          create: (_) => connectivity,
-        ),
+        // EXTERNAL DEPENDENCIES
+        Provider<http.Client>(create: (_) => httpClient, dispose: (_, client) => client.close()),
+        Provider<SharedPreferences>(create: (_) => sharedPreferences),
         
-        // 2. Cung cấp NetworkInfo
-        Provider<NetworkInfo>(
-          create: (context) => NetworkInfoImpl(
-            context.read<Connectivity>(), 
-          ),
-        ),
+        // CORE SERVICES 
+        Provider<NetworkInfo>(create: (_) => networkInfo),
+        Provider<SecureStorageService>(create: (_) => storageService), 
 
+        // DATA SOURCES
+        Provider<AuthRemoteDatasource>(create: (_) => authRemoteDatasource),
+        Provider<AuthLocalDataSource>(create: (_) => authLocalDataSource),
 
-        Provider<AuthRemoteDatasource>(
-          create: (context) => AuthRemoteDatasourceImpl(
-            context.read<http.Client>(), 
-          ),
-        ),
-        Provider<AuthLocalDataSource>(
-          create: (context) => AuthLocalDataSourceImpl(
-            context.read<SharedPreferences>(), 
-          ),
-        ),
+        // REPOSITORY
+        Provider<AuthRepository>(create: (_) => authRepository),
 
-        Provider<AuthRepository>(
-          create: (context) => AuthRepositoryImpl(
-            remoteDatasource: context.read<AuthRemoteDatasource>(), 
-            localDataSource: context.read<AuthLocalDataSource>(), 
-            networkInfo: context.read<NetworkInfo>(), 
-          ),
-        ),
-
-        // 5. Cung cấp các Use Cases
-        Provider<LoginUser>(
-          create: (context) => LoginUser(
-            context.read<AuthRepository>(),
-          ),
-        ),
-        Provider<RegisterUser>(
-          create: (context) => RegisterUser(
-            context.read<AuthRepository>(),
-          ),
-        ),
+        // USE CASES
+        Provider<LoginUser>(create: (_) => loginUser),
+        Provider<RegisterUser>(create: (_) => registerUser),
         
-        ChangeNotifierProvider<AuthProvider>(
-          create: (context) => AuthProvider(
-            loginUser: context.read<LoginUser>(),
-            registerUser: context.read<RegisterUser>(),
-          ),
-        ),
+        // AUTH PROVIDER
+        ChangeNotifierProvider.value(value: authProvider),
       ],
-      child: const MyApp(),
+      child: const NutriMateApp(),
     ),
   );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class NutriMateApp extends StatelessWidget {
+  const NutriMateApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -100,15 +111,24 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       home: Consumer<AuthProvider>(
         builder: (context, auth, _) {
-          // TODO: Bạn nên thêm một hàm 'tryAutoLogin' trong AuthProvider
-          // để kiểm tra token từ localDataSource lúc khởi động
+          // LOADING when checking token
+          if (auth.isCheckingAuth) {
+            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          }
           
           if (auth.token != null) {
-            return Scaffold(body: Center(child: Text('Đã đăng nhập!')));
+            // TODO: Thay thế bằng màn hình Trang Chủ (HomeScreen)
+            return const Scaffold(body: Center(child: Text('Đã đăng nhập! Chuyển sang Trang Chủ.')));
           }
+          
+          // INITIAL/ERROR
           return const LoginScreen();
         },
       ),
+      routes: {
+        '/register': (context) => const Text('RegisterScreen'),
+        '/home': (context) => const Text('HomeScreen'),
+      }
     );
   }
 }

@@ -6,12 +6,13 @@ import '../../core/error/exceptions.dart';
 
 abstract class AuthRemoteDatasource {
   Future<String> login(String email, String password); 
-  Future<Users> register(String email, String password, String fullname);
+  Future<Users> register(String email, String password, String fullName); 
 }
 
 class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   final http.Client client;
   AuthRemoteDatasourceImpl(this.client);
+
 
   @override
   Future<Users> register(String email, String password, String fullName) async {
@@ -21,19 +22,22 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
       body: json.encode({
         'email': email,
         'password': password,
-        'fullname': fullName,
+        // LƯU Ý: Phải khớp với tên trường DTO (fullName) của Backend NestJS
+        'fullname': fullName, 
       }),
     );
 
     if (response.statusCode == 201) {
       final jsonResponse = json.decode(response.body);
-      // Dùng fromJson để parse (sạch hơn)
-      return Users.fromJson(jsonResponse['data']);
+      // Giả định NestJS trả về User Entity trực tiếp
+      return Users.fromJson(jsonResponse); 
     } else {
+      // Xử lý lỗi (Email đã tồn tại, validation...)
       final errorJson = json.decode(response.body);
       throw ServerException(errorJson['message'] ?? 'Failed to sign up');
     }
   }
+
 
   @override
   Future<String> login(String email, String password) async {
@@ -48,14 +52,17 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
     if (response.statusCode == 200) {
       final jsonResponse = json.decode(response.body);
-      if (jsonResponse['token'] != null) {
-        return jsonResponse['token'];
+      
+      final token = jsonResponse['access_token'];
+
+      if (token != null) {
+        return token; 
       } else {
-        throw ServerException('Login failed: Token not found');
+        throw ServerException('Login failed: Token not found in response payload');
       }
     } else {
       final errorJson = json.decode(response.body);
-      throw ServerException(errorJson['message'] ?? 'Failed to sign in');
+      throw ServerException(errorJson['message'] ?? 'Invalid email or password');
     }
   }
 }
