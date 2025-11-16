@@ -13,14 +13,20 @@ import 'core/error/failures.dart';
 import 'data/datasources/auth_local_datasource.dart';
 import 'data/datasources/auth_remote_datasource.dart';
 import 'data/repositories/auth_repository_impl.dart';
+import 'data/datasources/dashboard_remote_datasource.dart';
+import 'data/repositories/dashboard_repository_impl.dart';
 // Import Domain
 import 'domain/repositories/auth_repository.dart';
 import 'domain/usecases/login_user.dart';
 import 'domain/usecases/register_user.dart';
 import 'domain/entities/user.dart'; 
+import 'domain/usecases/get_dashboard_summary.dart';
+import 'domain/repositories/dashboard_repository.dart';
 // Import Presentation
 import 'presentation/screens/auth/login_screen.dart'; 
 import 'presentation/providers/auth_provider.dart';
+import 'presentation/screens/dashboard/dashboard_screen.dart';
+import 'presentation/providers/dashboard_provider.dart';
 
 import 'core/error/exceptions.dart'; 
 
@@ -61,10 +67,24 @@ void main() async {
     loginUser: loginUser,
     registerUser: registerUser,
     storageService: storageService,
-    // THÊM: AuthRepository, nếu Provider của bạn cần nó
-    // authRepository: authRepository, 
   );
   
+  // --- DASHBOARD ---
+  final dashboardRemoteDatasource = DashboardRemoteDatasourceImpl(
+    client: httpClient,
+    storageService: storageService,
+  );
+
+  final dashboardRepository = DashboardRepositoryImpl(
+    remoteDatasource: dashboardRemoteDatasource,
+    networkInfo: networkInfo,
+  );
+
+  final getDashboardSummary = GetDashboardSummary(dashboardRepository);
+  final dashboardProvider = DashboardProvider(
+    getDashboardSummary: getDashboardSummary,
+  );
+
   await authProvider.tryAutoLogin(); 
   
   runApp(
@@ -91,6 +111,12 @@ void main() async {
         
         // AUTH PROVIDER
         ChangeNotifierProvider.value(value: authProvider),
+
+        // DASHBOARD DEPENDENCIES
+        Provider<DashboardRemoteDatasource>(create: (_) => dashboardRemoteDatasource),
+        Provider<DashboardRepository>(create: (_) => dashboardRepository),
+        Provider<GetDashboardSummary>(create: (_) => GetDashboardSummary(dashboardRepository)),
+        ChangeNotifierProvider.value(value: dashboardProvider)
       ],
       child: const NutriMateApp(),
     ),
@@ -118,7 +144,7 @@ class NutriMateApp extends StatelessWidget {
           
           if (auth.token != null) {
             // TODO: Thay thế bằng màn hình Trang Chủ (HomeScreen)
-            return const Scaffold(body: Center(child: Text('Đã đăng nhập! Chuyển sang Trang Chủ.')));
+            return const DashboardScreen();
           }
           
           // INITIAL/ERROR
