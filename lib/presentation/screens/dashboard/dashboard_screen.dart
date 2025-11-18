@@ -1,10 +1,9 @@
-// file: lib/presentation/screens/dashboard/dashboard_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import '../../providers/dashboard_provider.dart';
-import '../../../models/dashboard_model.dart'; 
+import '../../../models/dashboard_model.dart';
+import 'package:nutri_mate_ui/presentation/screens/profile/profile_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -17,7 +16,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Tải dữ liệu ngay khi vào màn hình
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<DashboardProvider>(context, listen: false).fetchSummary();
     });
@@ -34,16 +32,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             icon: const Icon(Icons.person_outline),
             onPressed: () {
-              // TODO: Điều hướng sang trang Profile
+              // Điều hướng sang trang Profile
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const ProfileScreen(),
+                ),
+              );
+              // =======================
             },
           )
         ],
       ),
-      backgroundColor: Colors.grey[50], // Màu nền sạch
+      backgroundColor: Colors.grey[50],
       body: Consumer<DashboardProvider>(
         builder: (context, provider, child) {
-          // ... (Phần code loading, error, success giữ nguyên) ...
-          
           // 1. TRẠNG THÁI LOADING
           if (provider.status == DashboardStatus.loading) {
             return const Center(child: CircularProgressIndicator());
@@ -93,17 +95,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                     progressColor: Colors.green,
-                    backgroundColor: Colors.green.shade100, // (Dòng này OK)
+                    backgroundColor: Colors.green.shade100,
                     circularStrokeCap: CircularStrokeCap.round,
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // --- CHI TIẾT CALO ---
-                  _buildCalorieDetailsCard(summary), // (Giờ đã hợp lệ)
-                  
+                  _buildCalorieDetailsCard(summary),
+
                   const SizedBox(height: 16),
-                  
+
                   // --- CHI TIẾT DINH DƯỠNG ---
                   _buildMacroNutrientsCard(),
                 ],
@@ -125,7 +127,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // (Hàm này giờ đã hợp lệ vì DashboardModel đã được import)
+  // (Code các Widget con _buildCalorieDetailsCard, _buildMacroNutrientsCard...
   Widget _buildCalorieDetailsCard(DashboardModel summary) {
     return Card(
       elevation: 2,
@@ -182,7 +184,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // 2. (SỬA LỖI 2) Đổi `Color` thành `MaterialColor`
   Widget _buildMacroRow(String label, double consumed, double target, MaterialColor color) {
     double percent = (consumed / target);
     if (percent < 0) percent = 0;
@@ -202,8 +203,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         LinearPercentIndicator(
           percent: percent,
           lineHeight: 10,
-          progressColor: color, // Giờ là MaterialColor
-          backgroundColor: color.shade100, // (Giờ đã hợp lệ)
+          progressColor: color, 
+          backgroundColor: color.shade100, 
           barRadius: const Radius.circular(5),
         ),
       ],

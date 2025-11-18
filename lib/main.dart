@@ -15,6 +15,8 @@ import 'data/datasources/auth_remote_datasource.dart';
 import 'data/repositories/auth_repository_impl.dart';
 import 'data/datasources/dashboard_remote_datasource.dart';
 import 'data/repositories/dashboard_repository_impl.dart';
+import 'data/datasources/profile_remote_datasource.dart';
+import 'data/repositories/profile_repository_impl.dart';
 // Import Domain
 import 'domain/repositories/auth_repository.dart';
 import 'domain/usecases/login_user.dart';
@@ -22,11 +24,14 @@ import 'domain/usecases/register_user.dart';
 import 'domain/entities/user.dart'; 
 import 'domain/usecases/get_dashboard_summary.dart';
 import 'domain/repositories/dashboard_repository.dart';
+import 'domain/repositories/profile_repository.dart';
+import 'domain/usecases/profile_usecases.dart';
 // Import Presentation
 import 'presentation/screens/auth/login_screen.dart'; 
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/screens/dashboard/dashboard_screen.dart';
 import 'presentation/providers/dashboard_provider.dart';
+import 'presentation/providers/profile_provider.dart';
 
 import 'core/error/exceptions.dart'; 
 
@@ -51,18 +56,18 @@ void main() async {
   final authRemoteDatasource = AuthRemoteDatasourceImpl(httpClient);
   final authLocalDataSource = AuthLocalDataSourceImpl(sharedPreferences);
 
-  // 3. Repository
+  // Repository
   final authRepository = AuthRepositoryImpl(
     remoteDatasource: authRemoteDatasource, 
     localDataSource: authLocalDataSource, 
     networkInfo: networkInfo, 
   );
 
-  // 4. Use Cases
+  // Use Cases
   final loginUser = LoginUser(authRepository);
   final registerUser = RegisterUser(authRepository);
   
-  // 5. Auth Provider 
+  //  Auth Provider 
   final authProvider = AuthProvider(
     loginUser: loginUser,
     registerUser: registerUser,
@@ -83,6 +88,22 @@ void main() async {
   final getDashboardSummary = GetDashboardSummary(dashboardRepository);
   final dashboardProvider = DashboardProvider(
     getDashboardSummary: getDashboardSummary,
+  );
+
+  // --- PROFILE ---
+  final profileRemoteDatasource = ProfileRemoteDatasourceImpl(
+    client: httpClient,
+    storageService: storageService,
+  );
+  final profileRepository = ProfileRepositoryImpl(
+    remoteDatasource: profileRemoteDatasource,
+    networkInfo: networkInfo,
+  );
+  final getUserProfile = GetUserProfile(profileRepository);
+  final updateUserProfile = UpdateUserProfile(profileRepository);
+  final profileProvider = ProfileProvider(
+    getUserProfile: getUserProfile,
+    updateUserProfile: updateUserProfile,
   );
 
   await authProvider.tryAutoLogin(); 
@@ -115,8 +136,15 @@ void main() async {
         // DASHBOARD DEPENDENCIES
         Provider<DashboardRemoteDatasource>(create: (_) => dashboardRemoteDatasource),
         Provider<DashboardRepository>(create: (_) => dashboardRepository),
-        Provider<GetDashboardSummary>(create: (_) => GetDashboardSummary(dashboardRepository)),
-        ChangeNotifierProvider.value(value: dashboardProvider)
+        Provider<GetDashboardSummary>(create: (_) => getDashboardSummary),
+        ChangeNotifierProvider.value(value: dashboardProvider),
+
+        // PROFILE DEPENDENCIES
+        Provider<ProfileRemoteDatasource>(create: (_) => profileRemoteDatasource),
+        Provider<ProfileRepository>(create: (_) => profileRepository),
+        Provider<GetUserProfile>(create: (_) => getUserProfile),
+        Provider<UpdateUserProfile>(create: (_) => updateUserProfile),
+        ChangeNotifierProvider.value(value: profileProvider),
       ],
       child: const NutriMateApp(),
     ),
