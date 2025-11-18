@@ -19,6 +19,8 @@ import 'data/datasources/food_remote_datasource.dart';
 import 'data/repositories/food_repository_impl.dart';
 import 'data/datasources/meal_log_remote_datasource.dart';
 import 'data/repositories/meal_log_repository_impl.dart';
+import 'data/datasources/workout_remote_datasource.dart';
+import 'data/repositories/workout_repository_impl.dart';
 // Import Domain
 import 'domain/repositories/auth_repository.dart';
 import 'domain/usecases/login_user.dart';
@@ -31,6 +33,8 @@ import 'domain/repositories/food_repository.dart';
 import 'domain/usecases/food_usecases.dart';
 import 'domain/repositories/meal_log_repository.dart';
 import 'domain/usecases/create_meal_log.dart';
+import 'domain/repositories/workout_repository.dart';
+import 'domain/usecases/workout_usecases.dart';
 // Import Presentation
 import 'presentation/screens/auth/login_screen.dart'; 
 import 'presentation/providers/auth_provider.dart';
@@ -39,6 +43,7 @@ import 'presentation/providers/dashboard_provider.dart';
 import 'presentation/providers/profile_provider.dart';
 import 'presentation/providers/food_provider.dart';
 import 'presentation/providers/meal_log_provider.dart';
+import 'presentation/providers/workout_provider.dart';
 
 
 
@@ -142,6 +147,22 @@ void main() async {
     createMealLog: createMealLog,
   );
 
+  // --- WORKOUT ---
+  final workoutRemoteDatasource = WorkoutRemoteDatasourceImpl(
+    client: httpClient,
+    storageService: storageService,
+  );
+  final workoutRepository = WorkoutRepositoryImpl(
+    remoteDatasource: workoutRemoteDatasource,
+    networkInfo: networkInfo,
+  );
+  final getExercises = GetExercises(workoutRepository);
+  final createWorkoutLog = CreateWorkoutLog(workoutRepository);
+  final workoutProvider = WorkoutProvider(
+    getExercises: getExercises,
+    createWorkoutLog: createWorkoutLog,
+  );
+
   await authProvider.tryAutoLogin(); 
   
   runApp(
@@ -194,6 +215,13 @@ void main() async {
         Provider<MealLogRepository>(create: (_) => mealLogRepository),
         Provider<CreateMealLog>(create: (_) => createMealLog),
         ChangeNotifierProvider.value(value: mealLogProvider),
+
+        // WORKOUT DEPENDENCIES
+        Provider<WorkoutRemoteDatasource>(create: (_) => workoutRemoteDatasource),
+        Provider<WorkoutRepository>(create: (_) => workoutRepository),
+        Provider<GetExercises>(create: (_) => getExercises),
+        Provider<CreateWorkoutLog>(create: (_) => createWorkoutLog),
+        ChangeNotifierProvider.value(value: workoutProvider),
       ],
       child: const NutriMateApp(),
     ),

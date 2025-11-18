@@ -5,6 +5,7 @@ import 'package:percent_indicator/percent_indicator.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../../models/dashboard_model.dart';
 import 'package:nutri_mate_ui/presentation/screens/profile/profile_screen.dart';
+import 'package:nutri_mate_ui/presentation/screens/workout/workout_screen.dart'; 
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -30,16 +31,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          // --- NÚT MỚI: CHUYỂN SANG WORKOUT ---
+          IconButton(
+            icon: const Icon(Icons.fitness_center),
+            tooltip: 'Luyện tập',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const WorkoutScreen(),
+                ),
+              );
+            },
+          ),
+          
+          // --- NÚT PROFILE ---
           IconButton(
             icon: const Icon(Icons.person_outline),
+            tooltip: 'Hồ sơ',
             onPressed: () {
-              // Điều hướng sang trang Profile
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => const ProfileScreen(),
                 ),
               );
-              // =======================
             },
           )
         ],
@@ -120,14 +134,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // ===== (ĐÃ SỬA) =====
           // Điều hướng sang trang Tìm kiếm món ăn
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => const FoodSearchScreen(),
             ),
           );
-          // ====================
         },
         backgroundColor: Colors.green,
         child: const Icon(Icons.add, color: Colors.white),
@@ -135,7 +147,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // (Code các Widget con _buildCalorieDetailsCard, _buildMacroNutrientsCard...
   Widget _buildCalorieDetailsCard(DashboardModel summary) {
     return Card(
       elevation: 2,
@@ -156,7 +167,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildMacroNutrientsCard() {
-    // TODO: Lấy dữ liệu Protein, Carb, Fat từ `summary`
     return Card(
       elevation: 2,
       shadowColor: Colors.grey.shade50,
