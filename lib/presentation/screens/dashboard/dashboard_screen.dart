@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nutri_mate_ui/presentation/screens/food_search/food_search_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import '../../providers/dashboard_provider.dart';
@@ -119,7 +120,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Điều hướng sang trang tìm kiếm/thêm món ăn
+          // ===== (ĐÃ SỬA) =====
+          // Điều hướng sang trang Tìm kiếm món ăn
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const FoodSearchScreen(),
+            ),
+          );
+          // ====================
         },
         backgroundColor: Colors.green,
         child: const Icon(Icons.add, color: Colors.white),

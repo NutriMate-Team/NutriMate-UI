@@ -183,7 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   // Dropdown Mức độ Hoạt động
                   DropdownButtonFormField<String>(
-                    value: _activityLevel,
+                    initialValue: _activityLevel,
                     hint: const Text('Mức độ hoạt động'),
                     decoration: const InputDecoration(border: OutlineInputBorder()),
                     items: ActivityLevel.values.map((level) {

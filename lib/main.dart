@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
@@ -8,7 +7,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 // Import Core
 import 'core/network/network_info.dart';
 import 'core/services/secure_storage_service.dart';
-import 'core/error/failures.dart'; 
 // Import Data
 import 'data/datasources/auth_local_datasource.dart';
 import 'data/datasources/auth_remote_datasource.dart';
@@ -17,23 +15,31 @@ import 'data/datasources/dashboard_remote_datasource.dart';
 import 'data/repositories/dashboard_repository_impl.dart';
 import 'data/datasources/profile_remote_datasource.dart';
 import 'data/repositories/profile_repository_impl.dart';
+import 'data/datasources/food_remote_datasource.dart';
+import 'data/repositories/food_repository_impl.dart';
+import 'data/datasources/meal_log_remote_datasource.dart';
+import 'data/repositories/meal_log_repository_impl.dart';
 // Import Domain
 import 'domain/repositories/auth_repository.dart';
 import 'domain/usecases/login_user.dart';
 import 'domain/usecases/register_user.dart';
-import 'domain/entities/user.dart'; 
 import 'domain/usecases/get_dashboard_summary.dart';
 import 'domain/repositories/dashboard_repository.dart';
 import 'domain/repositories/profile_repository.dart';
 import 'domain/usecases/profile_usecases.dart';
+import 'domain/repositories/food_repository.dart';
+import 'domain/usecases/food_usecases.dart';
+import 'domain/repositories/meal_log_repository.dart';
+import 'domain/usecases/create_meal_log.dart';
 // Import Presentation
 import 'presentation/screens/auth/login_screen.dart'; 
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/screens/dashboard/dashboard_screen.dart';
 import 'presentation/providers/dashboard_provider.dart';
 import 'presentation/providers/profile_provider.dart';
+import 'presentation/providers/food_provider.dart';
+import 'presentation/providers/meal_log_provider.dart';
 
-import 'core/error/exceptions.dart'; 
 
 
 void main() async {
@@ -106,6 +112,36 @@ void main() async {
     updateUserProfile: updateUserProfile,
   );
 
+  //  --- FOOD ---
+  final foodRemoteDatasource = FoodRemoteDatasourceImpl(
+    client: httpClient,
+    storageService: storageService,
+  );
+  final foodRepository = FoodRepositoryImpl(
+    remoteDatasource: foodRemoteDatasource,
+    networkInfo: networkInfo,
+  );
+  final searchFood = SearchFood(foodRepository);
+  final searchBarcode = SearchBarcode(foodRepository);
+  final foodProvider = FoodProvider(
+    searchFood: searchFood,
+    searchBarcode: searchBarcode,
+  );
+
+  //  --- MEAL LOG ---
+  final mealLogRemoteDatasource = MealLogRemoteDatasourceImpl(
+    client: httpClient,
+    storageService: storageService,
+  );
+  final mealLogRepository = MealLogRepositoryImpl(
+    remoteDatasource: mealLogRemoteDatasource,
+    networkInfo: networkInfo,
+  );
+  final createMealLog = CreateMealLog(mealLogRepository);
+  final mealLogProvider = MealLogProvider(
+    createMealLog: createMealLog,
+  );
+
   await authProvider.tryAutoLogin(); 
   
   runApp(
@@ -145,6 +181,19 @@ void main() async {
         Provider<GetUserProfile>(create: (_) => getUserProfile),
         Provider<UpdateUserProfile>(create: (_) => updateUserProfile),
         ChangeNotifierProvider.value(value: profileProvider),
+
+        // FOOD DEPENDENCIES
+        Provider<FoodRemoteDatasource>(create: (_) => foodRemoteDatasource),
+        Provider<FoodRepository>(create: (_) => foodRepository),
+        Provider<SearchFood>(create: (_) => searchFood),
+        Provider<SearchBarcode>(create: (_) => searchBarcode),
+        ChangeNotifierProvider.value(value: foodProvider),
+
+        // MEAL LOG DEPENDENCIES
+        Provider<MealLogRemoteDatasource>(create: (_) => mealLogRemoteDatasource),
+        Provider<MealLogRepository>(create: (_) => mealLogRepository),
+        Provider<CreateMealLog>(create: (_) => createMealLog),
+        ChangeNotifierProvider.value(value: mealLogProvider),
       ],
       child: const NutriMateApp(),
     ),
