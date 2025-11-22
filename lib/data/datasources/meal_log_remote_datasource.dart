@@ -1,5 +1,3 @@
-// file: lib/data/datasources/meal_log_remote_datasource.dart
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../constants/api_constants.dart';
@@ -11,7 +9,6 @@ import '../../models/meal_log_model.dart';
 abstract class MealLogRemoteDatasource {
   Future<void> createMealLog(CreateMealLogDto dto);
   Future<List<MealLogModel>> getMealLogs();
-  // 👇 THÊM DÒNG NÀY VÀO ĐỂ SỬA LỖI
   Future<void> deleteMealLog(String id); 
 }
 

@@ -207,13 +207,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   
                   // 2. THÊM BIỂU ĐỒ VÀO ĐÂY
                   const SizedBox(height: 32),
-                  const Text(
-                    "Tiến trình cân nặng (7 ngày qua)", 
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                  // Hiển thị biểu đồ với animation
+                  AnimatedOpacity(
+                    opacity: 1.0,
+                    duration: const Duration(milliseconds: 500),
+                    child: const WeightChart(),
                   ),
-                  const SizedBox(height: 10),
-                  // Hiển thị biểu đồ (Widget này cần được tạo trước)
-                  const WeightChart(), 
                   const SizedBox(height: 32),
 
                   if (provider.status == ProfileStatus.loading && !_isInit)
