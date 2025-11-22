@@ -1,5 +1,3 @@
-// file: lib/presentation/screens/profile/profile_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/profile_provider.dart';
@@ -7,8 +5,7 @@ import '../../providers/dashboard_provider.dart';
 import '../../providers/auth_provider.dart'; 
 import '../../../domain/entities/update_profile_dto.dart';
 import '../../../models/profile_model.dart';
-// Import enum từ file DTO
-import '../../../domain/entities/update_profile_dto.dart' show ActivityLevel;
+import '../../widgets/weight_chart.dart'; 
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -33,22 +30,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _weightController = TextEditingController();
     _targetWeightController = TextEditingController();
 
-    // Gọi Provider để tải dữ liệu
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<ProfileProvider>(context, listen: false).fetchProfile();
     });
   }
 
-  // 1. (MỚI) Dùng didChangeDependencies để điền dữ liệu an toàn
+  // Điền dữ liệu an toàn
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_isInit) {
       final provider = Provider.of<ProfileProvider>(context);
-      // Nếu tải thành công và chưa điền dữ liệu
       if (provider.status == ProfileStatus.success && provider.profile != null) {
         _populateControllers(provider.profile!);
-        _isInit = false; // Đánh dấu đã xong
+        _isInit = false; 
       }
     }
   }
@@ -63,7 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _onSave() async {
     if (!_formKey.currentState!.validate()) {
-      return;
+      return; 
     }
 
     final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
@@ -87,8 +82,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        // Không pop() để tránh màn hình đen nếu dùng BottomNav
-        // Navigator.of(context).pop(); 
+        // Không pop() để tránh màn hình đen
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -106,7 +100,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _targetWeightController.text = profile.targetWeightKg?.toString() ?? '';
     
     if (profile.activityLevel != null) {
-       // Không cần setState ở đây vì nó chạy trước build
        _activityLevel = profile.activityLevel;
     }
   }
@@ -139,14 +132,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (provider.status == ProfileStatus.error && _isInit) {
             return Center(child: Text('Lỗi tải hồ sơ: ${provider.errorMessage}'));
           }
-
-          // 2. (QUAN TRỌNG) Đã xóa đoạn gọi _populateControllers ở đây
           
           return Form(
             key: _formKey,
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, // Căn trái tiêu đề
                 children: [
                   TextFormField(
                     controller: _heightController,
@@ -197,7 +189,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 16),
 
                   DropdownButtonFormField<String>(
-                    value: _activityLevel, // Giá trị lấy từ biến state
+                    value: _activityLevel,
                     hint: const Text('Mức độ hoạt động'),
                     decoration: const InputDecoration(border: OutlineInputBorder()),
                     items: ActivityLevel.values.map((level) {
@@ -213,10 +205,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                   
+                  // 2. THÊM BIỂU ĐỒ VÀO ĐÂY
+                  const SizedBox(height: 32),
+                  const Text(
+                    "Tiến trình cân nặng (7 ngày qua)", 
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                  ),
+                  const SizedBox(height: 10),
+                  // Hiển thị biểu đồ (Widget này cần được tạo trước)
+                  const WeightChart(), 
+                  const SizedBox(height: 32),
+
                   if (provider.status == ProfileStatus.loading && !_isInit)
                     const Padding(
                       padding: EdgeInsets.only(top: 24.0),
-                      child: CircularProgressIndicator(),
+                      child: Center(child: CircularProgressIndicator()),
                     )
                 ],
               ),
