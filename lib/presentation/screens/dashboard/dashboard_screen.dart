@@ -31,26 +31,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Tổng quan hôm nay',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
         ),
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.grey[50],
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.fitness_center),
-            tooltip: 'Luyện tập',
+            icon: const CircleAvatar(
+              backgroundColor: Colors.green,
+              child: Icon(Icons.person, color: Colors.white, size: 20),
+            ),
+            tooltip: 'Hồ sơ',
             onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const WorkoutScreen()),
-              );
+              // Navigate to profile or show menu
             },
           ),
+          const SizedBox(width: 8),
         ],
       ),
-      backgroundColor: Colors.grey[50],
       body: Consumer<DashboardProvider>(
         builder: (context, provider, child) {
           // 1. LOADING with animation
@@ -110,26 +116,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 12),
 
                     // --- NÚT XEM NHẬT KÝ ---
-                    Hero(
-                      tag: 'meal_diary_button',
-                      child: Material(
-                        color: Colors.transparent,
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const MealDiaryScreen()),
-                              );
-                            },
-                            icon: const Icon(Icons.history, size: 20),
-                            label: const Text("Xem nhật ký ăn uống"),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              backgroundColor: Colors.white,
-                              side: BorderSide(color: Colors.grey.shade300),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const MealDiaryScreen()),
+                            );
+                          },
+                          icon: const Icon(Icons.history, size: 20),
+                          label: Text(
+                            "Xem nhật ký ăn uống",
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
                             ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: Colors.white,
+                            side: BorderSide(color: Colors.grey.shade300),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                           ),
                         ),
                       ),
@@ -168,20 +177,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     
     return Hero(
       tag: 'calorie_progress',
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.green.withOpacity(0.15),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
           children: [
             // Stats around the circle
             Row(
@@ -297,6 +298,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ],
+          ),
         ),
       ),
     );
@@ -468,194 +470,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Card(
       elevation: 2,
-      shadowColor: Colors.cyan.shade100,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.cyan.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(Icons.water_drop, color: Colors.cyan.shade600, size: 28),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      "Nước uống", 
-                      style: GoogleFonts.poppins(
-                        fontSize: 18, 
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.cyan.shade400, Colors.cyan.shade600],
-                    ),
+                    color: Colors.cyan.shade50,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                    "$currentMl / $targetMl ml", 
-                    style: GoogleFonts.poppins(
-                      color: Colors.white, 
-                      fontWeight: FontWeight.bold, 
-                      fontSize: 14,
-                    ),
+                  child: Icon(Icons.water_drop, color: Colors.cyan.shade600, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  "Nước uống", 
+                  style: GoogleFonts.poppins(
+                    fontSize: 18, 
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            // Glass filling effect with visual representation
-            Row(
-              children: [
-                // Visual glass representation
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    children: [
-                      Container(
-                        height: 140,
-                        width: 70,
-                        decoration: BoxDecoration(
-                          color: Colors.cyan.shade50,
-                          borderRadius: BorderRadius.circular(35),
-                          border: Border.all(color: Colors.cyan.shade300, width: 3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.cyan.withOpacity(0.2),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Stack(
-                          alignment: Alignment.bottomCenter,
-                          children: [
-                            // Water fill with animation
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 600),
-                              curve: Curves.easeInOut,
-                              height: 140 * percent,
-                              width: 64,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.cyan.shade300,
-                                    Colors.cyan.shade600,
-                                    Colors.cyan.shade700,
-                                  ],
-                                  stops: const [0.0, 0.7, 1.0],
-                                ),
-                                borderRadius: const BorderRadius.only(
-                                  bottomLeft: Radius.circular(32),
-                                  bottomRight: Radius.circular(32),
-                                ),
-                              ),
-                            ),
-                            // Water level indicator
-                            if (percent > 0)
-                              Positioned(
-                                bottom: 140 * percent - 2,
-                                child: Container(
-                                  width: 64,
-                                  height: 3,
-                                  decoration: BoxDecoration(
-                                    color: Colors.cyan.shade900,
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        "$glasses / $target cốc",
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.cyan.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
+            const SizedBox(height: 20),
+            // Water amount text (prominently displayed)
+            Center(
+              child: Text(
+                "$currentMl / $targetMl ml",
+                style: GoogleFonts.poppins(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.cyan.shade700,
                 ),
-                const SizedBox(width: 20),
-                // Progress bar and controls
-                Expanded(
-                  flex: 3,
-                  child: Column(
-                    children: [
-                      LinearPercentIndicator(
-                        lineHeight: 28.0,
-                        percent: percent,
-                        backgroundColor: Colors.cyan.shade50,
-                        progressColor: Colors.cyan.shade600,
-                        barRadius: const Radius.circular(14),
-                        animation: true,
-                        animateFromLastPercent: true,
-                        center: Text(
-                          "${(percent * 100).toStringAsFixed(0)}%", 
-                          style: GoogleFonts.poppins(
-                            fontSize: 13, 
-                            fontWeight: FontWeight.bold,
-                            color: percent > 0.5 ? Colors.white : Colors.cyan.shade700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Quick water buttons
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildQuickWaterButton(
-                            label: '250ml',
-                            onTap: () => provider.updateWater(1),
-                            color: Colors.cyan,
-                          ),
-                          _buildQuickWaterButton(
-                            label: '500ml',
-                            onTap: () => provider.updateWater(2),
-                            color: Colors.cyan,
-                            isLarge: true,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      // Add/Remove buttons
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildCircleButton(
-                            icon: Icons.remove,
-                            onTap: () => provider.updateWater(-1),
-                            color: Colors.grey,
-                          ),
-                          const SizedBox(width: 20), 
-                          _buildCircleButton(
-                            icon: Icons.add,
-                            onTap: () => provider.updateWater(1),
-                            color: Colors.cyan,
-                            isLarge: true, 
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Linear Progress Indicator
+            ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: LinearProgressIndicator(
+                value: percent,
+                minHeight: 15,
+                backgroundColor: Colors.cyan.shade50,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.cyan.shade600),
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Quick Add buttons as rounded chips
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildWaterChipButton(
+                  label: '+250ml',
+                  onTap: () => provider.updateWater(1),
+                  color: Colors.cyan,
+                ),
+                const SizedBox(width: 12),
+                _buildWaterChipButton(
+                  label: '+500ml',
+                  onTap: () => provider.updateWater(2),
+                  color: Colors.cyan,
                 ),
               ],
             ),
@@ -665,61 +544,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildQuickWaterButton({
+  Widget _buildWaterChipButton({
     required String label,
     required VoidCallback onTap,
     required Color color,
-    bool isLarge = false,
   }) {
     return _ScaleOnTap(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: isLarge ? 16 : 12,
-          vertical: 8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.4)),
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(25),
+          border: Border.all(color: color.withOpacity(0.3), width: 1.5),
         ),
-        child: Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: isLarge ? 13 : 11,
-            fontWeight: FontWeight.w600,
-            color: color,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCircleButton({required IconData icon, required VoidCallback onTap, required Color color, bool isLarge = false}) {
-    return _ScaleOnTap(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(isLarge ? 14 : 10),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color.withOpacity(0.15), 
-          border: Border.all(color: color, width: 2.5),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add, color: color, size: 18),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ],
         ),
-        child: Icon(icon, color: color, size: isLarge ? 32 : 24),
       ),
     );
   }
 
+
+
   Widget _buildCalorieDetailsCard(DashboardModel summary) {
     return Card(
-      elevation: 2, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
@@ -752,8 +615,7 @@ Widget _buildMacroNutrientsCard() {
 
     return Card(
       elevation: 2,
-      shadowColor: Colors.grey.shade50,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -812,7 +674,7 @@ Widget _buildMacroNutrientsCard() {
               style: GoogleFonts.poppins(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: color,
+                color: color.shade700,
               ),
             ),
           ],
@@ -820,10 +682,10 @@ Widget _buildMacroNutrientsCard() {
         const SizedBox(height: 10),
         LinearPercentIndicator(
           percent: percent, 
-          lineHeight: 12, 
-          progressColor: color, 
+          lineHeight: 16, 
+          progressColor: color.shade600, 
           backgroundColor: color.shade100, 
-          barRadius: const Radius.circular(6),
+          barRadius: const Radius.circular(8),
           animation: true,
           animateFromLastPercent: true,
         ),

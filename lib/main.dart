@@ -19,6 +19,7 @@ import 'domain/usecases/login_user.dart';
 import 'domain/usecases/register_user.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/screens/auth/login_screen.dart';
+import 'presentation/screens/auth/register_screen.dart';
 
 // --- DASHBOARD ---
 import 'data/datasources/dashboard_remote_datasource.dart';
@@ -294,7 +295,7 @@ class NutriMateApp extends StatelessWidget {
         },
       ),
       routes: {
-        '/register': (context) => const Text('RegisterScreen'), 
+        '/register': (context) => const RegisterScreen(), 
       }
     );
   }
