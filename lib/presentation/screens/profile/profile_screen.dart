@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/auth_provider.dart'; 
@@ -19,7 +20,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _heightController;
   late TextEditingController _weightController;
   late TextEditingController _targetWeightController;
+  late TextEditingController _goalStartDateController;
   String? _activityLevel;
+  String? _avatarPath; // For storing avatar image path
+  DateTime? _goalStartDate;
+  double? _weeklyGoalRate;
 
   bool _isInit = true;
 
@@ -29,6 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _heightController = TextEditingController();
     _weightController = TextEditingController();
     _targetWeightController = TextEditingController();
+    _goalStartDateController = TextEditingController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<ProfileProvider>(context, listen: false).fetchProfile();
@@ -53,6 +59,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _heightController.dispose();
     _weightController.dispose();
     _targetWeightController.dispose();
+    _goalStartDateController.dispose();
     super.dispose();
   }
 
@@ -68,6 +75,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       weightKg: double.tryParse(_weightController.text),
       targetWeightKg: double.tryParse(_targetWeightController.text),
       activityLevel: _activityLevel,
+      goalStartDate: _goalStartDate != null 
+          ? DateFormat('yyyy-MM-dd').format(_goalStartDate!)
+          : null,
+      weeklyGoalRate: _weeklyGoalRate,
     );
 
     final success = await profileProvider.saveProfile(dto);
@@ -102,6 +113,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (profile.activityLevel != null) {
        _activityLevel = profile.activityLevel;
     }
+    
+    // Populate goal start date
+    if (profile.goalStartDate != null) {
+      try {
+        _goalStartDate = DateFormat('yyyy-MM-dd').parse(profile.goalStartDate!);
+        _goalStartDateController.text = DateFormat('dd/MM/yyyy').format(_goalStartDate!);
+      } catch (e) {
+        // If parsing fails, leave empty
+        _goalStartDate = null;
+        _goalStartDateController.text = '';
+      }
+    } else {
+      _goalStartDate = null;
+      _goalStartDateController.text = '';
+    }
+    
+    // Populate weekly goal rate
+    _weeklyGoalRate = profile.weeklyGoalRate;
   }
 
   @override
@@ -110,16 +139,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('Hồ sơ của tôi'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _onSave,
+          // Save button as text button with larger tap target
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            child: TextButton(
+              onPressed: _onSave,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                minimumSize: const Size(64, 40), // Larger tap target
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'LƯU',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.red),
-            onPressed: () {
-              Provider.of<AuthProvider>(context, listen: false).logout();
-              Navigator.popUntil(context, (route) => route.isFirst);
-            },
+          // Logout button with larger tap target
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: IconButton(
+              icon: const Icon(Icons.logout, color: Colors.red),
+              iconSize: 26,
+              padding: const EdgeInsets.all(12.0), // Larger tap target
+              constraints: const BoxConstraints(
+                minWidth: 48,
+                minHeight: 48,
+              ),
+              onPressed: () {
+                Provider.of<AuthProvider>(context, listen: false).logout();
+                Navigator.popUntil(context, (route) => route.isFirst);
+              },
+            ),
           ),
         ],
       ),
@@ -138,71 +196,150 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, // Căn trái tiêu đề
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  TextFormField(
-                    controller: _heightController,
-                    decoration: const InputDecoration(
-                      labelText: 'Chiều cao (cm)',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value != null && value.isNotEmpty && double.tryParse(value) == null) {
-                        return 'Vui lòng nhập số hợp lệ';
-                      }
-                      return null;
-                    },
-                  ),
+                  // Avatar section - large circular area
                   const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: _weightController,
-                    decoration: const InputDecoration(
-                      labelText: 'Cân nặng (kg)',
-                      border: OutlineInputBorder(),
+                  GestureDetector(
+                    onTap: _pickAvatar,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey.shade200,
+                        border: Border.all(
+                          color: Colors.green,
+                          width: 3,
+                        ),
+                      ),
+                      child: _avatarPath != null
+                          ? ClipOval(
+                              child: Image.network(
+                                _avatarPath!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return _buildDefaultAvatar();
+                                },
+                              ),
+                            )
+                          : _buildDefaultAvatar(),
                     ),
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value != null && value.isNotEmpty && double.tryParse(value) == null) {
-                        return 'Vui lòng nhập số hợp lệ';
-                      }
-                      return null;
-                    },
                   ),
-                  const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: _targetWeightController,
-                    decoration: const InputDecoration(
-                      labelText: 'Cân nặng mục tiêu (kg)',
-                      border: OutlineInputBorder(),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: _pickAvatar,
+                    icon: const Icon(Icons.camera_alt, size: 18),
+                    label: const Text(
+                      'Thay đổi ảnh đại diện',
+                      style: TextStyle(fontSize: 12),
                     ),
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value != null && value.isNotEmpty && double.tryParse(value) == null) {
-                        return 'Vui lòng nhập số hợp lệ';
-                      }
-                      return null;
-                    },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
+                  
+                  // Form fields
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        controller: _heightController,
+                        decoration: const InputDecoration(
+                          labelText: 'Chiều cao',
+                          border: OutlineInputBorder(),
+                          suffixText: 'cm',
+                          suffixStyle: TextStyle(
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value != null && value.isNotEmpty && double.tryParse(value) == null) {
+                            return 'Vui lòng nhập số hợp lệ';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
 
-                  DropdownButtonFormField<String>(
-                    value: _activityLevel,
-                    hint: const Text('Mức độ hoạt động'),
-                    decoration: const InputDecoration(border: OutlineInputBorder()),
-                    items: ActivityLevel.values.map((level) {
-                      return DropdownMenuItem<String>(
-                        value: level.name,
-                        child: Text(_activityLevelToString(level)),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _activityLevel = value;
-                      });
-                    },
+                      TextFormField(
+                        controller: _weightController,
+                        decoration: const InputDecoration(
+                          labelText: 'Cân nặng',
+                          border: OutlineInputBorder(),
+                          suffixText: 'kg',
+                          suffixStyle: TextStyle(
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value != null && value.isNotEmpty && double.tryParse(value) == null) {
+                            return 'Vui lòng nhập số hợp lệ';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      TextFormField(
+                        controller: _targetWeightController,
+                        decoration: const InputDecoration(
+                          labelText: 'Cân nặng mục tiêu',
+                          border: OutlineInputBorder(),
+                          suffixText: 'kg',
+                          suffixStyle: TextStyle(
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value != null && value.isNotEmpty && double.tryParse(value) == null) {
+                            return 'Vui lòng nhập số hợp lệ';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Activity level as chips
+                      const Text(
+                        'Mức độ hoạt động',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: ActivityLevel.values.map((level) {
+                          final isSelected = _activityLevel == level.name;
+                          return FilterChip(
+                            label: Text(_activityLevelToShortString(level)),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                _activityLevel = selected ? level.name : null;
+                              });
+                            },
+                            selectedColor: Colors.green.shade100,
+                            checkmarkColor: Colors.green.shade700,
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.green.shade700 : Colors.black87,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            side: BorderSide(
+                              color: isSelected ? Colors.green.shade700 : Colors.grey.shade300,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
                   ),
                   
                   // 2. THÊM BIỂU ĐỒ VÀO ĐÂY
@@ -211,7 +348,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   AnimatedOpacity(
                     opacity: 1.0,
                     duration: const Duration(milliseconds: 500),
-                    child: const WeightChart(),
+                    child: Builder(
+                      builder: (context) {
+                        final currentWeight = double.tryParse(_weightController.text);
+                        final targetWeight = double.tryParse(_targetWeightController.text);
+                        return WeightChart(
+                          currentWeight: currentWeight,
+                          targetWeight: targetWeight,
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(height: 32),
 
@@ -229,13 +375,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  String _activityLevelToString(ActivityLevel level) {
+  String _activityLevelToShortString(ActivityLevel level) {
     switch (level) {
-      case ActivityLevel.SEDENTARY: return 'Ít vận động (văn phòng)';
-      case ActivityLevel.LIGHT: return 'Vận động nhẹ (1-3 ngày/tuần)';
-      case ActivityLevel.MODERATE: return 'Vận động vừa (3-5 ngày/tuần)';
-      case ActivityLevel.ACTIVE: return 'Năng động (6-7 ngày/tuần)';
-      case ActivityLevel.VERY_ACTIVE: return 'Rất năng động (lao động nặng)';
+      case ActivityLevel.SEDENTARY: return 'Ít vận động';
+      case ActivityLevel.LIGHT: return 'Nhẹ';
+      case ActivityLevel.MODERATE: return 'Trung bình';
+      case ActivityLevel.ACTIVE: return 'Mạnh';
+      case ActivityLevel.VERY_ACTIVE: return 'Rất mạnh';
     }
   }
+
+  Widget _buildDefaultAvatar() {
+    return Center(
+      child: Icon(
+        Icons.person,
+        size: 60,
+        color: Colors.grey.shade400,
+      ),
+    );
+  }
+
+  Future<void> _pickAvatar() async {
+    // TODO: Implement image picker functionality
+    // For now, this is a placeholder
+    // You can use image_picker package: final ImagePicker picker = ImagePicker();
+    // final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    // if (image != null) {
+    //   setState(() {
+    //     _avatarPath = image.path;
+    //   });
+    // }
+    
+    // Show a dialog or snackbar for now
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tính năng tải ảnh đại diện sẽ được triển khai sớm'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
 }

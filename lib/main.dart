@@ -18,7 +18,6 @@ import 'domain/repositories/auth_repository.dart';
 import 'domain/usecases/login_user.dart';
 import 'domain/usecases/register_user.dart';
 import 'presentation/providers/auth_provider.dart';
-import 'presentation/screens/auth/login_screen.dart';
 import 'presentation/screens/auth/register_screen.dart';
 
 // --- DASHBOARD ---
@@ -58,9 +57,11 @@ import 'domain/repositories/workout_repository.dart';
 import 'domain/usecases/workout_usecases.dart';
 import 'presentation/providers/workout_provider.dart';
 
+// --- STREAK ---
+import 'presentation/providers/streak_provider.dart';
+
 // --- SCREENS ---
-import 'presentation/screens/main_screen.dart';
-import 'presentation/screens/intro/onboarding_screen.dart'; 
+import 'presentation/screens/splash/splash_page.dart'; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -169,6 +170,9 @@ void main() async {
     createWorkoutLog: createWorkoutLog,
   );
 
+  // --- STREAK ---
+  final streakProvider = StreakProvider();
+
   // Tự động đăng nhập
   await authProvider.tryAutoLogin(); 
   
@@ -222,6 +226,9 @@ void main() async {
         Provider<GetExercises>(create: (_) => getExercises),
         Provider<CreateWorkoutLog>(create: (_) => createWorkoutLog),
         ChangeNotifierProvider.value(value: workoutProvider),
+
+        // STREAK Providers
+        ChangeNotifierProvider.value(value: streakProvider),
       ],
       child: NutriMateApp(seenOnboarding: seenOnboarding),
     ),
@@ -269,31 +276,7 @@ class NutriMateApp extends StatelessWidget {
         ),
       ),
       debugShowCheckedModeBanner: false,
-      home: Consumer<AuthProvider>(
-        builder: (context, auth, _) {
-          if (auth.isCheckingAuth) {
-            return Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    const Color(0xFF00BFA5),
-                  ),
-                ),
-              ),
-            );
-          }
-          
-          if (auth.token != null) {
-            return const MainScreen(); 
-          }
-          
-          if (!seenOnboarding) {
-            return const OnboardingScreen();
-          }
-          
-          return const LoginScreen();
-        },
-      ),
+      home: const SplashPage(),
       routes: {
         '/register': (context) => const RegisterScreen(), 
       }

@@ -1,9 +1,11 @@
 // file: lib/presentation/screens/main_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'profile/profile_screen.dart';
 import 'food_search/food_search_screen.dart';
+import 'workout/workout_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -12,15 +14,62 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
+  bool _isSpeedDialOpen = false;
+  late AnimationController _speedDialController;
+  late Animation<double> _speedDialAnimation;
 
   final List<Widget> _screens = [
     const DashboardScreen(), // Index 0
     const ProfileScreen(),   // Index 1
   ];
 
-  void _onAddPressed() {
+  @override
+  void initState() {
+    super.initState();
+    _speedDialController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+      reverseDuration: const Duration(milliseconds: 250),
+    );
+    _speedDialAnimation = CurvedAnimation(
+      parent: _speedDialController,
+      curve: Curves.easeOut,
+      reverseCurve: Curves.easeIn,
+    );
+  }
+
+  @override
+  void dispose() {
+    _speedDialController.dispose();
+    super.dispose();
+  }
+
+  void _toggleSpeedDial() {
+    if (!_isSpeedDialOpen) {
+      setState(() {
+        _isSpeedDialOpen = true;
+      });
+      _speedDialController.forward();
+    }
+  }
+
+  void _closeSpeedDial() {
+    if (_isSpeedDialOpen) {
+      // Animate close with smooth cancel animation
+      _speedDialController.reverse().then((_) {
+        if (mounted) {
+          setState(() {
+            _isSpeedDialOpen = false;
+          });
+        }
+      });
+    }
+  }
+
+  void _onAddMeal() {
+    _closeSpeedDial();
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => const FoodSearchScreen(),
@@ -28,7 +77,36 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  void _onAddWater() {
+    _closeSpeedDial();
+    // Navigate to dashboard and show water section
+    setState(() {
+      _currentIndex = 0;
+    });
+    // Show a snackbar to guide user to water section
+    Future.delayed(const Duration(milliseconds: 300), () {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vuốt xuống để xem phần nước uống'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    });
+  }
+
+  void _onAddActivity() {
+    _closeSpeedDial();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const WorkoutScreen(),
+      ),
+    );
+  }
+
   void _onTabTapped(int index) {
+    if (_isSpeedDialOpen) {
+      _closeSpeedDial();
+    }
     setState(() {
       _currentIndex = index;
     });
@@ -37,21 +115,24 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _currentIndex,
+            children: _screens,
+          ),
+          // Speed Dial Overlay
+          if (_isSpeedDialOpen) _buildSpeedDialOverlay(),
+        ],
       ),
-      
-      // ❌ ĐÃ XÓA FloatingActionButton (để không bị nổi lên)
-
       bottomNavigationBar: BottomAppBar(
         color: Colors.white,
-        elevation: 10, // Tạo bóng cho thanh điều hướng
-        padding: EdgeInsets.zero, // Xóa padding mặc định để căn chỉnh tốt hơn
+        elevation: 10,
+        padding: EdgeInsets.zero,
         child: SizedBox(
-          height: 70, // Chiều cao thanh điều hướng
+          height: 70,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround, // Căn đều 3 phần tử
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               // --- TAB 1: TỔNG QUAN ---
               _buildTabItem(
@@ -61,8 +142,8 @@ class _MainScreenState extends State<MainScreen> {
                 index: 0,
               ),
               
-              // --- NÚT CỘNG (NẰM GIỮA & NGANG HÀNG) ---
-              _buildMiddleButton(),
+              // --- PROMINENT FAB (NẰM GIỮA & NGANG HÀNG) ---
+              _buildProminentFAB(),
 
               // --- TAB 2: HỒ SƠ ---
               _buildTabItem(
@@ -78,26 +159,189 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // Widget nút giữa (Hình tròn xanh)
-  Widget _buildMiddleButton() {
-    return InkWell(
-      onTap: _onAddPressed,
-      borderRadius: BorderRadius.circular(50), // Hiệu ứng ripple tròn
+  // Prominent Floating Action Button
+  Widget _buildProminentFAB() {
+    return AnimatedRotation(
+      turns: _isSpeedDialOpen ? 0.125 : 0.0, // 45 degrees (1/8 turn) when open
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
       child: Container(
-        width: 50, 
-        height: 50,
+        width: 64,
+        height: 64,
         decoration: BoxDecoration(
-          color: Colors.green,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.green.shade600,
+              Colors.green.shade700,
+            ],
+          ),
           shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white,
+            width: 2.0,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.green.withOpacity(0.4),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+              color: Colors.green.withOpacity(0.5),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+              spreadRadius: 1,
             ),
           ],
         ),
-        child: const Icon(Icons.add, color: Colors.white, size: 30),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              // Haptic feedback for satisfying interaction
+              HapticFeedback.lightImpact();
+              // When speed dial is open, explicitly close it (cancel action)
+              // When closed, open it
+              if (_isSpeedDialOpen) {
+                _closeSpeedDial();
+              } else {
+                _toggleSpeedDial();
+              }
+            },
+            borderRadius: BorderRadius.circular(32),
+            child: Icon(
+              _isSpeedDialOpen ? Icons.close : Icons.add,
+              color: Colors.white,
+              size: 32,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Speed Dial Overlay
+  Widget _buildSpeedDialOverlay() {
+    return GestureDetector(
+      onTap: _closeSpeedDial, // Explicitly close on tap outside (cancel action)
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        color: Colors.black.withOpacity(0.4),
+        child: SafeArea(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              const Spacer(),
+              // Speed Dial Options - Prevent tap from propagating to overlay
+              GestureDetector(
+                onTap: () {}, // Prevent tap from closing when tapping options area
+                child: FadeTransition(
+                  opacity: _speedDialAnimation,
+                  child: ScaleTransition(
+                    scale: _speedDialAnimation,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildSpeedDialOption(
+                          icon: Icons.restaurant,
+                          label: 'Thêm Bữa ăn',
+                          color: Colors.blue,
+                          onTap: _onAddMeal,
+                          delay: 0,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildSpeedDialOption(
+                          icon: Icons.water_drop,
+                          label: 'Thêm Nước',
+                          color: Colors.cyan,
+                          onTap: _onAddWater,
+                          delay: 50,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildSpeedDialOption(
+                          icon: Icons.fitness_center,
+                          label: 'Thêm Hoạt động',
+                          color: Colors.orange,
+                          onTap: _onAddActivity,
+                          delay: 100,
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // Spacer to position above bottom nav
+              const SizedBox(height: 90),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpeedDialOption({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+    required int delay,
+  }) {
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.5),
+        end: Offset.zero,
+      ).animate(
+        CurvedAnimation(
+          parent: _speedDialController,
+          curve: Interval(
+            delay / 300.0,
+            1.0,
+            curve: Curves.easeOut,
+          ),
+        ),
+      ),
+      child: FadeTransition(
+        opacity: _speedDialAnimation,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const Spacer(),
+                Icon(Icons.chevron_right, color: Colors.grey.shade400),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

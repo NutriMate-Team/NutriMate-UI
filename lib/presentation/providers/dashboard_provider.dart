@@ -53,6 +53,16 @@ class DashboardProvider extends ChangeNotifier {
     await prefs.setInt('water_count', _waterGlasses);
   }
 
+  // Update water by ml amount (converts ml to glasses)
+  Future<void> updateWaterByMl(int ml, {bool isAdd = true}) async {
+    const int mlPerGlass = 250;
+    // Convert ml to glasses (round to nearest)
+    int glassesChange = (ml / mlPerGlass).round();
+    if (!isAdd) glassesChange = -glassesChange;
+    
+    await updateWater(glassesChange);
+  }
+
   Future<void> fetchSummary() async {
     print("--- BẮT ĐẦU FETCH SUMMARY ---");
     _status = DashboardStatus.loading;
