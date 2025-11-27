@@ -6,6 +6,7 @@ import 'dashboard/dashboard_screen.dart';
 import 'profile/profile_screen.dart';
 import 'food_search/food_search_screen.dart';
 import 'workout/workout_screen.dart';
+import 'activity/activity_log_page.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -99,6 +100,15 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => const WorkoutScreen(),
+      ),
+    );
+  }
+
+  void _onViewActivityLog() {
+    _closeSpeedDial();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ActivityLogPage(),
       ),
     );
   }
@@ -261,6 +271,14 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
                           color: Colors.orange,
                           onTap: _onAddActivity,
                           delay: 100,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildSpeedDialOption(
+                          icon: Icons.history,
+                          label: 'Xem Nhật ký Hoạt động',
+                          color: Colors.deepPurple,
+                          onTap: _onViewActivityLog,
+                          delay: 150,
                         ),
                         const SizedBox(height: 24),
                       ],

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Providers & Models
 import '../../providers/dashboard_provider.dart';
@@ -14,7 +15,8 @@ import 'package:nutri_mate_ui/presentation/screens/workout/workout_screen.dart';
 import 'package:nutri_mate_ui/presentation/screens/meal_diary/meal_diary_screen.dart';
 import 'package:nutri_mate_ui/presentation/screens/food_search/food_search_screen.dart';
 import 'package:nutri_mate_ui/presentation/screens/streak/streak_detail_screen.dart';
-import 'macro_detail_screen.dart';
+import '../activity/activity_log_page.dart';
+import 'macro_detail_screen.dart' show MacroType;
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -28,6 +30,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _quickActionsScrollController = ScrollController();
   final GlobalKey _waterSectionKey = GlobalKey();
   double _quickActionsScrollPosition = 0.0;
+  double? _customProteinTarget;
+  double? _customFatTarget;
+  double? _customCarbTarget;
 
   @override
   void initState() {
@@ -40,6 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     
     // Listen to quick actions scroll for snap and indicator
     _quickActionsScrollController.addListener(_onQuickActionsScroll);
+    _loadMacroTargets();
   }
 
   @override
@@ -73,6 +79,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
     );
+  }
+
+  Future<void> _loadMacroTargets() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _customProteinTarget = prefs.getDouble('macro_target_protein');
+      _customFatTarget = prefs.getDouble('macro_target_fat');
+      _customCarbTarget = prefs.getDouble('macro_target_carb');
+    });
+  }
+
+  Future<void> _saveMacroTargets(double protein, double fat, double carb) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('macro_target_protein', protein);
+    await prefs.setDouble('macro_target_fat', fat);
+    await prefs.setDouble('macro_target_carb', carb);
+    setState(() {
+      _customProteinTarget = protein;
+      _customFatTarget = fat;
+      _customCarbTarget = carb;
+    });
   }
 
   void _scrollToWaterSection() {
@@ -176,7 +203,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 children: [
                     // --- CALORIE STATISTICS ROW ---
-                    _buildCalorieStatsRow(target, consumed, summary.caloriesBurned),
+                    _buildCalorieStatsRow(context, target, consumed, summary.caloriesBurned),
                     const SizedBox(height: 24),
                     // --- BIỂU ĐỒ TRÒN VỚI FIRE ICON (HERO SECTION) ---
                     _buildCalorieProgressIndicator(remaining, percent, consumed, target, summary.caloriesBurned),
@@ -241,7 +268,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // --- CÁC WIDGET CON ---
 
   // Calorie Statistics Row - Prominent display below title
-  Widget _buildCalorieStatsRow(double target, double consumed, double burned) {
+  Widget _buildCalorieStatsRow(BuildContext context, double target, double consumed, double burned) {
     final double remaining = target - consumed;
     final bool isOverconsumption = remaining < 0;
     
@@ -280,6 +307,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               value: burned.toStringAsFixed(0),
               color: Colors.green,
               shouldHighlight: burned > 0,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ActivityLogPage(),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -293,20 +327,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required Color color,
     bool shouldHighlight = false,
     Color? highlightColor,
+    VoidCallback? onTap,
   }) {
     final effectiveHighlightColor = highlightColor ?? Colors.orange.shade100;
     
     return Expanded(
-      child: Column(
-        children: [
-          shouldHighlight
-              ? Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: effectiveHighlightColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Column(
+          children: [
+            shouldHighlight
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: effectiveHighlightColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      value,
+                      style: GoogleFonts.poppins(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  )
+                : Text(
                     value,
                     style: GoogleFonts.poppins(
                       fontSize: 28,
@@ -314,25 +361,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: color,
                     ),
                   ),
-                )
-              : Text(
-                  value,
-                  style: GoogleFonts.poppins(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -887,9 +926,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // Tính toán MỤC TIÊU dựa trên Calo (Công thức giả định: 30% P - 25% F - 45% C)
     final double targetCal = summary.targetCalories ?? 2000;
-    final double targetProtein = (targetCal * 0.30) / 4;
-    final double targetFat = (targetCal * 0.25) / 9;
-    final double targetCarb = (targetCal * 0.45) / 4;
+    final double defaultProteinTarget = (targetCal * 0.30) / 4;
+    final double defaultFatTarget = (targetCal * 0.25) / 9;
+    final double defaultCarbTarget = (targetCal * 0.45) / 4;
+
+    final double targetProtein = _customProteinTarget ?? defaultProteinTarget;
+    final double targetFat = _customFatTarget ?? defaultFatTarget;
+    final double targetCarb = _customCarbTarget ?? defaultCarbTarget;
 
     return Card(
       elevation: 2,
@@ -911,11 +954,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Icon(Icons.analytics, color: Colors.green.shade600, size: 24),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  "Thống kê Dinh dưỡng",
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    "Thống kê Dinh dưỡng",
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: 'Chỉnh sửa mục tiêu vĩ mô',
+                  onPressed: () => _showMacroTargetEditor(
+                    defaultProteinTarget,
+                    defaultFatTarget,
+                    defaultCarbTarget,
                   ),
                 ),
               ],
@@ -928,7 +982,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               targetProtein,
               Colors.teal,
               MacroType.protein,
-              targetCal,
+              defaultTargets: (
+                protein: defaultProteinTarget,
+                fat: defaultFatTarget,
+                carb: defaultCarbTarget
+              ),
             ),
             const SizedBox(height: 18),
             _buildMacroRow(
@@ -938,7 +996,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               targetFat,
               Colors.orange,
               MacroType.fat,
-              targetCal,
+              defaultTargets: (
+                protein: defaultProteinTarget,
+                fat: defaultFatTarget,
+                carb: defaultCarbTarget
+              ),
             ),
             const SizedBox(height: 18),
             _buildMacroRow(
@@ -948,7 +1010,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               targetCarb,
               Colors.purple,
               MacroType.carbs,
-              targetCal,
+              defaultTargets: (
+                protein: defaultProteinTarget,
+                fat: defaultFatTarget,
+                carb: defaultCarbTarget
+              ),
             ),
           ],
         ),
@@ -962,9 +1028,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double consumed,
     double target,
     MaterialColor color,
-    MacroType macroType,
-    double targetCalories,
-  ) {
+    MacroType macroType, {
+    required ({double protein, double fat, double carb}) defaultTargets,
+  }) {
     double percent = (consumed / target);
     if (percent < 0) percent = 0;
     // Don't cap percent - allow it to exceed 1.0 to detect overconsumption
@@ -995,18 +1061,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double visualPercent = percent > 1.0 ? 1.0 : percent;
     
     return InkWell(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => MacroDetailScreen(
-              macroType: macroType,
-              consumed: consumed,
-              target: target,
-              targetCalories: targetCalories,
-            ),
-          ),
-        );
-      },
+      onTap: () => _showMacroTargetEditor(
+        defaultTargets.protein,
+        defaultTargets.fat,
+        defaultTargets.carb,
+        focusMacro: macroType,
+      ),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
@@ -1068,6 +1128,123 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showMacroTargetEditor(
+    double defaultProtein,
+    double defaultFat,
+    double defaultCarb, {
+    MacroType? focusMacro,
+  }) {
+    final proteinController = TextEditingController(
+      text: (_customProteinTarget ?? defaultProtein).toStringAsFixed(0),
+    );
+    final fatController = TextEditingController(
+      text: (_customFatTarget ?? defaultFat).toStringAsFixed(0),
+    );
+    final carbController = TextEditingController(
+      text: (_customCarbTarget ?? defaultCarb).toStringAsFixed(0),
+    );
+
+    final proteinFocus = FocusNode();
+    final fatFocus = FocusNode();
+    final carbFocus = FocusNode();
+
+    void requestInitialFocus() {
+      switch (focusMacro) {
+        case MacroType.protein:
+          proteinFocus.requestFocus();
+          break;
+        case MacroType.fat:
+          fatFocus.requestFocus();
+          break;
+        case MacroType.carbs:
+          carbFocus.requestFocus();
+          break;
+        default:
+          proteinFocus.requestFocus();
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => requestInitialFocus());
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Chỉnh sửa mục tiêu dinh dưỡng'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildMacroTargetField(
+              label: 'Protein (g)',
+              controller: proteinController,
+              focusNode: proteinFocus,
+            ),
+            const SizedBox(height: 12),
+            _buildMacroTargetField(
+              label: 'Fat (g)',
+              controller: fatController,
+              focusNode: fatFocus,
+            ),
+            const SizedBox(height: 12),
+            _buildMacroTargetField(
+              label: 'Carbs (g)',
+              controller: carbController,
+              focusNode: carbFocus,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final protein = double.tryParse(proteinController.text) ?? defaultProtein;
+              final fat = double.tryParse(fatController.text) ?? defaultFat;
+              final carb = double.tryParse(carbController.text) ?? defaultCarb;
+
+              _saveMacroTargets(protein, fat, carb);
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Đã cập nhật mục tiêu dinh dưỡng'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00BFA5),
+            ),
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    ).then((_) {
+      proteinController.dispose();
+      fatController.dispose();
+      carbController.dispose();
+      proteinFocus.dispose();
+      fatFocus.dispose();
+      carbFocus.dispose();
+    });
+  }
+
+  Widget _buildMacroTargetField({
+    required String label,
+    required TextEditingController controller,
+    required FocusNode focusNode,
+  }) {
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
       ),
     );
   }

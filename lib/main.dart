@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 // --- CORE ---
 import 'core/network/network_info.dart';
@@ -65,6 +66,7 @@ import 'presentation/screens/splash/splash_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('vi_VN');
   
   // 1. EXTERNAL DEPENDENCIES
   final sharedPreferences = await SharedPreferences.getInstance();
