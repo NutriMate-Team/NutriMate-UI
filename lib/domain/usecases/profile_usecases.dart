@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:dartz/dartz.dart';
 import '../../core/error/failures.dart';
 import '../repositories/profile_repository.dart';
@@ -21,5 +22,15 @@ class UpdateUserProfile {
 
   Future<Either<Failure, ProfileModel>> call(UpdateProfileDto dto) async {
     return await repository.updateProfile(dto);
+  }
+}
+
+// UseCase 3
+class UpdateProfilePicture {
+  final ProfileRepository repository;
+  UpdateProfilePicture(this.repository);
+
+  Future<Either<Failure, String>> call(File imageFile) async {
+    return await repository.updateProfilePicture(imageFile);
   }
 }

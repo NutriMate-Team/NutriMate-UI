@@ -48,6 +48,18 @@ class AuthRepositoryImpl implements AuthRepository{
       return Left(const ConnectionFailure());
     }
   }
+
+  @override
+  Future<Either<Failure, Map<String, dynamic>>> validateToken() async {
+    try {
+      final result = await remoteDatasource.validateToken();
+      return Right(result);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on Exception {
+      return Left(const ConnectionFailure());
+    }
+  }
   
 
 }

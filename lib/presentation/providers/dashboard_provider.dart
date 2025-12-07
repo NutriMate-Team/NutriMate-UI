@@ -1,26 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart'; 
 import '../../domain/usecases/get_dashboard_summary.dart';
+import '../../domain/usecases/workout_usecases.dart';
 import '../../models/dashboard_model.dart';
+import '../../models/workout_log_model.dart';
 import '../../core/error/failures.dart';
 
 enum DashboardStatus { initial, loading, success, error }
 
 class DashboardProvider extends ChangeNotifier {
   final GetDashboardSummary getDashboardSummary;
+  final GetTodayWorkoutLogs getTodayWorkoutLogs;
+  final DeleteWorkoutLog deleteWorkoutLog;
 
   DashboardStatus _status = DashboardStatus.initial;
   String _errorMessage = '';
   DashboardModel? _summary;
   
-  int _waterGlasses = 0; 
+  int _waterGlasses = 0;
+  List<WorkoutLogModel> _todayWorkoutLogs = [];
+  bool _isLoadingWorkoutLogs = false;
 
   DashboardStatus get status => _status;
   String get errorMessage => _errorMessage;
   DashboardModel? get summary => _summary;
   int get waterGlasses => _waterGlasses; // Getter cho UI
+  List<WorkoutLogModel> get todayWorkoutLogs => _todayWorkoutLogs;
+  bool get isLoadingWorkoutLogs => _isLoadingWorkoutLogs;
+  
+  // Calculate total calories burned today
+  double get totalCaloriesBurnedToday {
+    return _todayWorkoutLogs.fold(0.0, (sum, log) => sum + log.caloriesBurned);
+  }
 
-  DashboardProvider({required this.getDashboardSummary});
+  DashboardProvider({
+    required this.getDashboardSummary,
+    required this.getTodayWorkoutLogs,
+    required this.deleteWorkoutLog,
+  });
 
   Future<void> loadWaterLog() async {
     final prefs = await SharedPreferences.getInstance();
@@ -72,10 +89,11 @@ class DashboardProvider extends ChangeNotifier {
     await loadWaterLog(); 
     print("--- ĐÃ LOAD NƯỚC XONG ---");
 
-    final result = await getDashboardSummary();
-    
+    // Fetch summary and workout logs in parallel
+    final summaryResult = await getDashboardSummary();
+    await fetchTodayWorkoutLogs();
 
-    result.fold(
+    summaryResult.fold(
       (failure) {
         _status = DashboardStatus.error;
         _errorMessage = (failure is ServerFailure)
@@ -90,5 +108,53 @@ class DashboardProvider extends ChangeNotifier {
     );
 
     notifyListeners();
+  }
+
+  // Fetch today's workout logs
+  Future<void> fetchTodayWorkoutLogs() async {
+    _isLoadingWorkoutLogs = true;
+    notifyListeners();
+
+    final result = await getTodayWorkoutLogs();
+    result.fold(
+      (failure) {
+        // Don't set error status for workout logs, just log it
+        _todayWorkoutLogs = [];
+      },
+      (logs) {
+        _todayWorkoutLogs = logs;
+      },
+    );
+
+    _isLoadingWorkoutLogs = false;
+    notifyListeners();
+  }
+
+  // Delete a workout log
+  Future<bool> deleteWorkoutLogEntry(String logId) async {
+    final result = await deleteWorkoutLog(logId);
+    
+    return result.fold(
+      (failure) {
+        _errorMessage = (failure is ServerFailure)
+            ? failure.message
+            : 'Lỗi xóa bài tập';
+        notifyListeners();
+        return false;
+      },
+      (_) {
+        // Remove from local list
+        _todayWorkoutLogs.removeWhere((log) => log.id == logId);
+        // Refresh summary to update calories burned
+        fetchSummary();
+        return true;
+      },
+    );
+  }
+
+  // Refresh workout logs after adding a new one
+  Future<void> refreshWorkoutLogs() async {
+    await fetchTodayWorkoutLogs();
+    await fetchSummary();
   }
 }

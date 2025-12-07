@@ -16,4 +16,12 @@ class ExerciseModel {
       caloriesBurnedPerHour: (json['caloriesBurnedPerHour'] as num? ?? 0).toDouble(),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'caloriesBurnedPerHour': caloriesBurnedPerHour,
+    };
+  }
 }

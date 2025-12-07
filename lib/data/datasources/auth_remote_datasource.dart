@@ -3,15 +3,19 @@ import 'package:http/http.dart' as http;
 import '../../constants/api_constants.dart';
 import 'package:nutri_mate_ui/domain/entities/user.dart';
 import '../../core/error/exceptions.dart';
+import '../../core/services/secure_storage_service.dart';
 
 abstract class AuthRemoteDatasource {
   Future<String> login(String email, String password); 
-  Future<Users> register(String email, String password, String fullName); 
+  Future<Users> register(String email, String password, String fullName);
+  Future<Map<String, dynamic>> validateToken();
 }
 
 class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   final http.Client client;
-  AuthRemoteDatasourceImpl(this.client);
+  final SecureStorageService storageService;
+  
+  AuthRemoteDatasourceImpl(this.client, this.storageService);
 
 
   @override
@@ -63,6 +67,32 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
     } else {
       final errorJson = json.decode(response.body);
       throw ServerException(errorJson['message'] ?? 'Invalid email or password');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> validateToken() async {
+    final token = await storageService.readToken();
+    if (token == null) {
+      throw ServerException('No token available');
+    }
+
+    final response = await client.get(
+      Uri.parse('$API_BASE_URL/auth/status'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } else if (response.statusCode == 401) {
+      // Token is invalid or expired
+      throw ServerException('Token expired or invalid');
+    } else {
+      final errorJson = json.decode(response.body);
+      throw ServerException(errorJson['message'] ?? 'Token validation failed');
     }
   }
 }

@@ -214,7 +214,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
                   if (mounted) {
                     if (success) {
-                      Provider.of<DashboardProvider>(context, listen: false).fetchSummary();
+                      final dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
+                      await dashboardProvider.refreshWorkoutLogs();
                       Navigator.of(context).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:nutri_mate_ui/config/theme.dart';
 import 'barcode_scanner_screen.dart';
 import '../../providers/food_provider.dart';
 import '../../../models/food_model.dart';
@@ -60,6 +61,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     final foodProvider = context.watch<FoodProvider>();
 
     return Scaffold(
+      backgroundColor: HumanizeUI.paleMintTop,
       appBar: AppBar(
         // Thanh tìm kiếm
         title: TextField(
@@ -79,7 +81,12 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
           ),
         ],
       ),
-      body: _buildBody(foodProvider),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: HumanizeUI.paleMintBackgroundGradient,
+        ),
+        child: _buildBody(foodProvider),
+      ),
     );
   }
 
@@ -130,61 +137,61 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        elevation: 1,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => _navigateToAddLog(food),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    food.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+      child: InkWell(
+        borderRadius: HumanizeUI.asymmetricRadius20,
+        onTap: () => _navigateToAddLog(food),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: HumanizeUI.asymmetricRadius20,
+            boxShadow: HumanizeUI.softElevation(baseColor: Colors.white),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  food.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2, right: 6),
-                          child: _buildSourceBadge(food.source),
-                        ),
-                        Text(
-                          calorieValue,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFFFF6F00),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'kcal',
-                      style: TextStyle(
-                        fontSize: 12,
-                        letterSpacing: 0.6,
-                        color: Colors.grey.shade600,
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2, right: 6),
+                        child: _buildSourceBadge(food.source),
                       ),
+                      Text(
+                        calorieValue,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFFF6F00),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'kcal',
+                    style: TextStyle(
+                      fontSize: 12,
+                      letterSpacing: 0.6,
+                      color: Colors.grey.shade600,
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -216,8 +223,9 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
       height: 32,
       decoration: BoxDecoration(
         color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: HumanizeUI.asymmetricRadius16,
         border: Border.all(color: color.withOpacity(0.5)),
+        boxShadow: HumanizeUI.softElevation(baseColor: Colors.white),
       ),
       alignment: Alignment.center,
       child: Text(

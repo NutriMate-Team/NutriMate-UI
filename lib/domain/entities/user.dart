@@ -2,11 +2,13 @@ class Users {
   final String id;
   final String email;
   final String fullName;
+  final String? profilePictureUrl;
 
   Users({
     required this.id,
     required this.email,
     required this.fullName,
+    this.profilePictureUrl,
   });
 
   // Factory constructor để parse JSON
@@ -14,7 +16,8 @@ class Users {
     return Users(
       id: json['id'] ?? json['_id'], 
       email: json['email'],
-      fullName: json['fullName'],
+      fullName: json['fullName'] ?? 'User',
+      profilePictureUrl: json['profilePictureUrl'],
     );
   }
 }

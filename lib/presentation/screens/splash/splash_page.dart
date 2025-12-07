@@ -21,21 +21,29 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _navigateToMain() async {
-    // Wait for 2 seconds
+    // Wait for 2 seconds (splash screen display)
     await Future.delayed(const Duration(seconds: 2));
     
     if (!mounted) return;
+    
+    // Get auth provider to check authentication status
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    // Wait for auth check to complete if it's still in progress
+    while (authProvider.isCheckingAuth) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+    }
     
     // Get SharedPreferences to check onboarding status
     final prefs = await SharedPreferences.getInstance();
     final bool seenOnboarding = prefs.getBool('seenOnboarding') ?? false;
     
-    // Get auth provider to check authentication status
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!mounted) return;
     
     // Navigate based on app state
-    if (authProvider.token != null) {
-      // User is authenticated, go to main screen
+    if (authProvider.status == AuthStatus.success && authProvider.token != null) {
+      // User is authenticated (token validated), go to main screen
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const MainScreen()),

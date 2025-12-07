@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:dartz/dartz.dart';
 import '../../core/error/exceptions.dart';
 import '../../core/error/failures.dart';
@@ -36,6 +37,20 @@ class ProfileRepositoryImpl implements ProfileRepository {
       try {
         final profile = await remoteDatasource.updateProfile(dto);
         return Right(profile);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
+      }
+    } else {
+      return Left(const ConnectionFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, String>> updateProfilePicture(File imageFile) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final profilePictureUrl = await remoteDatasource.updateProfilePicture(imageFile);
+        return Right(profilePictureUrl);
       } on ServerException catch (e) {
         return Left(ServerFailure(e.message));
       }

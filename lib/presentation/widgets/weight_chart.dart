@@ -117,14 +117,12 @@ class WeightChart extends StatelessWidget {
       return true;
     }());
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    // Remove Card wrapper - it's already wrapped in profile_screen.dart
+    // Use Column with Flexible to respect parent constraints
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -211,30 +209,38 @@ class WeightChart extends StatelessWidget {
                 ],
               ),
             ],
-            const SizedBox(height: 24), // Increased spacing to prevent title overlap
-            Padding(
-              padding: const EdgeInsets.only(left: 8.0), // Add left padding for Y-axis labels
-              child: AspectRatio(
-                aspectRatio: 1.7,
+            const SizedBox(height: 12), // Reduced spacing
+            Flexible(
+              fit: FlexFit.tight,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 8.0), // Add left padding for Y-axis labels
                 child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final chartHeight = constraints.maxHeight;
-                  
-                  // Calculate the actual chart area (excluding titles)
-                  // Left titles reserved size: 75, Bottom titles reserved size: 30
-                  final chartAreaHeight = chartHeight - 30; // Subtract bottom titles
-                  final chartAreaTop = 0; // Top of chart area
-                  
-                  // Calculate label position based on target weight value
-                  double? labelTop;
-                  if (targetWeight != null) {
-                    final range = maxWeight - minWeight;
-                    final positionFromTop = (maxWeight - targetWeight!) / range;
-                    // Position in chart area (accounting for bottom titles)
-                    labelTop = chartAreaTop + (positionFromTop * chartAreaHeight) - 10; // -10 to center on line
-                  }
-                  
-                  return Stack(
+                  builder: (context, chartConstraints) {
+                    final chartHeight = chartConstraints.maxHeight.isFinite 
+                        ? chartConstraints.maxHeight 
+                        : 200.0; // Fallback height
+                    final chartWidth = chartConstraints.maxWidth.isFinite 
+                        ? chartConstraints.maxWidth 
+                        : 300.0; // Fallback width
+                    
+                    // Calculate the actual chart area (excluding titles)
+                    // Left titles reserved size: 80, Bottom titles reserved size: 30
+                    final chartAreaHeight = (chartHeight - 30).clamp(100.0, double.infinity); // Subtract bottom titles, min 100
+                    final chartAreaTop = 0; // Top of chart area
+                    
+                    // Calculate label position based on target weight value
+                    double? labelTop;
+                    if (targetWeight != null) {
+                      final range = maxWeight - minWeight;
+                      final positionFromTop = (maxWeight - targetWeight!) / range;
+                      // Position in chart area (accounting for bottom titles)
+                      labelTop = chartAreaTop + (positionFromTop * chartAreaHeight) - 10; // -10 to center on line
+                    }
+                    
+                    return SizedBox(
+                      width: chartWidth,
+                      height: chartHeight,
+                      child: Stack(
                     children: [
                       LineChart(
                         LineChartData(
@@ -441,14 +447,13 @@ class WeightChart extends StatelessWidget {
                           ),
                         ),
                     ],
-                  );
-                },
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
-            ),
           ],
-        ),
-      ),
-    );
+        );
   }
 }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:nutri_mate_ui/config/theme.dart';
+import '../../providers/dashboard_provider.dart';
 
 class ActivityLogPage extends StatefulWidget {
   ActivityLogPage({super.key});
@@ -103,7 +106,7 @@ class _ActivityLogPageState extends State<ActivityLogPage> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.red.shade400,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: HumanizeUI.asymmetricRadius20,
       ),
       alignment: Alignment.centerRight,
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -131,6 +134,9 @@ class _ActivityLogPageState extends State<ActivityLogPage> {
     final removedEntry = _entries.removeAt(entryIndex);
     setState(() {});
 
+    // Sync dashboard summary (Đã đốt) after a deletion
+    Provider.of<DashboardProvider>(context, listen: false).fetchSummary();
+
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -141,6 +147,8 @@ class _ActivityLogPageState extends State<ActivityLogPage> {
             setState(() {
               _entries.insert(entryIndex, removedEntry);
             });
+            // Re-sync dashboard summary after undo
+            Provider.of<DashboardProvider>(context, listen: false).fetchSummary();
           },
         ),
         duration: const Duration(seconds: 3),
@@ -273,6 +281,10 @@ class _ActivityLogPageState extends State<ActivityLogPage> {
                     setState(() {
                       _entries[index] = updatedEntry;
                     });
+
+                    // Sync dashboard summary after editing an entry
+                    Provider.of<DashboardProvider>(context, listen: false)
+                        .fetchSummary();
 
                     Navigator.of(ctx).pop();
 
@@ -424,14 +436,10 @@ class _ActivityLogCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: HumanizeUI.asymmetricRadius20,
+        boxShadow: HumanizeUI.softElevation(
+          baseColor: Colors.white,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),

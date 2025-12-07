@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/streak_provider.dart';
+import '../../../models/workout_log_model.dart';
+import 'package:nutri_mate_ui/config/theme.dart';
 
 // Screens
 import 'package:nutri_mate_ui/presentation/screens/workout/workout_screen.dart';
@@ -119,11 +122,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Deeper, more noticeable pale green color for background
-    const Color paleMintTop = Color(0xFFE0F5E8);
-    
     return Scaffold(
-      backgroundColor: paleMintTop,
+      // Match Profile Screen's clean background
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: Text(
           'Tổng quan hôm nay',
@@ -133,7 +134,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             color: Colors.black87,
           ),
         ),
-        backgroundColor: paleMintTop,
+        backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: false,
         leadingWidth: 0,
@@ -142,23 +143,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Streak Indicator - Fire icon with number
           _buildStreakIndicator(context),
           const SizedBox(width: 8),
-          Consumer<ProfileProvider>(
-            builder: (context, profileProvider, child) {
-              return IconButton(
-                icon: _buildProfileAvatar(profileProvider.profile),
-                tooltip: 'Hồ sơ',
-            onPressed: () {
-                  // Navigate to profile or show menu
-                },
-              );
-            },
-          ),
-          const SizedBox(width: 8),
         ],
       ),
-      body: Container(
-        color: const Color(0xFFE0F5E8), // Deeper pale green background
-        child: Consumer<DashboardProvider>(
+      body: Consumer<DashboardProvider>(
         builder: (context, provider, child) {
             // 1. LOADING with animation
           if (provider.status == DashboardStatus.loading) {
@@ -189,10 +176,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final summary = provider.summary!;
             final double target = summary.targetCalories ?? 2000;
             final double consumed = summary.caloriesConsumed;
-            final double remaining = summary.remainingCalories ?? (target - consumed);
-            double percent = (consumed / target);
-            if (percent < 0) percent = 0; 
-            if (percent > 1) percent = 1;
+            final double burned = summary.caloriesBurned;
+            
+            // CRITICAL: Calculate net calories (consumed - burned) for accurate progress
+            // Net calories = calories consumed minus calories burned from exercise
+            final double netCalories = consumed - burned;
+            
+            // SIMPLIFIED: Use backend-calculated remainingCalories (more reliable)
+            // Backend already calculates: remainingCalories = targetCalories - netCalories
+            // This ensures consistency with backend logic and reduces frontend calculation errors
+            final double remaining = summary.remainingCalories ?? (target - netCalories);
+            
+            // CRITICAL: Calculate progress percentage using NET calories, not just consumed
+            // Formula: (Net Calories Consumed) / (Target Calories)
+            // This ensures exercise is properly accounted for in the progress calculation
+            double percent = (netCalories / target);
+            
+            // Clamp percent to valid range (0.0 to 1.0) for drawing purposes
+            // Drawing functions and color logic expect values between 0.0 and 1.0
+            // Note: Over-consumption is detected via 'remaining < 0' in color logic
+            // Negative net calories (high burn) -> clamp to 0%
+            if (percent < 0) percent = 0.0;
+            // Over-consumption (percent > 1.0) -> clamp to 100% for drawing
+            // The actual excess is still visible via negative 'remaining' value
+            if (percent > 1.0) percent = 1.0;
 
             return AnimatedOpacity(
               opacity: 1.0,
@@ -212,6 +219,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   
                     // --- QUICK ADD SECTION ---
                     _buildQuickAddSection(context),
+                  
+                    const SizedBox(height: 24),
+
+                    // --- WORKOUT LOG SECTION ---
+                    _buildWorkoutLogSection(context),
                   
                     const SizedBox(height: 16),
 
@@ -260,7 +272,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
           return const Center(child: Text('Đang chờ tải dữ liệu...'));
         },
-        ),
       ),
     );
   }
@@ -269,12 +280,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Calorie Statistics Row - Prominent display below title
   Widget _buildCalorieStatsRow(BuildContext context, double target, double consumed, double burned) {
-    final double remaining = target - consumed;
+    // CRITICAL: Calculate remaining using NET calories (consumed - burned)
+    // This ensures exercise calories are properly accounted for
+    final double netCalories = consumed - burned;
+    final double remaining = target - netCalories;
     final bool isOverconsumption = remaining < 0;
     
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: HumanizeUI.asymmetricRadius20,
+        boxShadow: HumanizeUI.softElevation(baseColor: Colors.white),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 16.0),
         child: Row(
@@ -307,12 +324,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               value: burned.toStringAsFixed(0),
               color: Colors.green,
               shouldHighlight: burned > 0,
-              onTap: () {
-                Navigator.of(context).push(
+              onTap: () async {
+                // Navigate to activity log and wait for potential changes
+                await Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => ActivityLogPage(),
                   ),
                 );
+                // Re-fetch dashboard summary (including updated burned calories)
+                if (context.mounted) {
+                  Provider.of<DashboardProvider>(context, listen: false)
+                      .fetchSummary();
+                }
               },
             ),
           ],
@@ -383,27 +406,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final bool isNearGoal = remaining >= 0 && remaining < 200;
     
     // Dynamic colors based on warning states
-    Color ringColor;
-    Color backgroundColor;
     Color flameColor;
     Color remainingTextColor;
     
     if (isOverconsumption) {
       // Overconsumption: Red
-      ringColor = Colors.red.shade600;
-      backgroundColor = Colors.red.shade50;
       flameColor = Colors.red.shade600;
       remainingTextColor = Colors.red.shade700;
     } else if (isNearGoal) {
       // Near goal warning: Yellow/Orange
-      ringColor = Colors.orange.shade500;
-      backgroundColor = Colors.orange.shade50;
       flameColor = Colors.orange.shade600;
       remainingTextColor = Colors.orange.shade700;
     } else {
-      // Normal: Forest Green (with dynamic flame based on progress)
-      ringColor = const Color(0xFF2E7D32); // Rich forest green
-      backgroundColor = Colors.green.shade50;
+      // Normal: Dynamic flame based on progress
       flameColor = percent < 0.5 
           ? Colors.orange.shade600 
           : percent < 0.8 
@@ -414,27 +429,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     
     return Hero(
       tag: 'calorie_progress',
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: HumanizeUI.asymmetricRadius24,
+          boxShadow: HumanizeUI.heroSoftElevation(baseColor: Colors.white),
+        ),
           padding: const EdgeInsets.all(16),
-          child: Column(
-          children: [
-            // Circular Progress with center content
-            Stack(
+        child: Stack(
               alignment: Alignment.center,
               children: [
-                CircularPercentIndicator(
-                  radius: 140.0, 
-                  lineWidth: 18.0, 
-                  percent: percent,
-                  animation: true,
-                  animateFromLastPercent: true,
-                  center: Column(
+            // Segmented circular ring
+            CustomPaint(
+              size: const Size(280, 280),
+              painter: _SegmentedRingPainter(),
+            ),
+            // Center content with fire icon
+            Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Dynamic Fire Icon
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         padding: const EdgeInsets.all(14),
@@ -466,15 +479,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                     ],
-                  ),
-                  progressColor: ringColor, 
-                  backgroundColor: backgroundColor, 
-                  circularStrokeCap: CircularStrokeCap.round,
                 ),
               ],
-            ),
-          ],
-          ),
         ),
       ),
     );
@@ -508,9 +514,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       {'name': 'Luyện tập', 'icon': Icons.fitness_center, 'color': Colors.red, 'isMeal': false},
     ];
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: HumanizeUI.asymmetricRadius20,
+        boxShadow: HumanizeUI.softElevation(baseColor: Colors.white),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16.0),
         child: Column(
@@ -572,6 +581,328 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // Workout Log Section - Display today's logged exercises
+  Widget _buildWorkoutLogSection(BuildContext context) {
+    final provider = Provider.of<DashboardProvider>(context);
+    final workoutLogs = provider.todayWorkoutLogs;
+    final isLoading = provider.isLoadingWorkoutLogs;
+    final totalBurned = provider.totalCaloriesBurnedToday;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: HumanizeUI.asymmetricRadius20,
+        boxShadow: HumanizeUI.softElevation(baseColor: Colors.white),
+      ),
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with title and add button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.fitness_center, color: Colors.orange.shade600, size: 24),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Bài tập hôm nay',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: Icon(Icons.add_circle, color: Colors.orange.shade600),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (context) => const WorkoutScreen()),
+                  ).then((_) {
+                    // Refresh workout logs when returning from workout screen
+                    provider.refreshWorkoutLogs();
+                  });
+                },
+                tooltip: 'Thêm bài tập',
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Total calories burned summary
+          if (totalBurned > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.local_fire_department, 
+                       color: Colors.orange.shade600, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Tổng: ${totalBurned.toStringAsFixed(0)} calo',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.orange.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 12),
+          // Workout logs list
+          if (isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (workoutLogs.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    Icon(Icons.fitness_center, 
+                         size: 48, color: Colors.grey.shade300),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Chưa có bài tập nào hôm nay',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (context) => const WorkoutScreen()),
+                        ).then((_) {
+                          provider.refreshWorkoutLogs();
+                        });
+                      },
+                      icon: Icon(Icons.add, size: 18),
+                      label: Text(
+                        'Thêm bài tập',
+                        style: GoogleFonts.poppins(fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: workoutLogs.length,
+              separatorBuilder: (context, index) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final log = workoutLogs[index];
+                return _buildWorkoutLogItem(context, log, provider);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Individual workout log item with delete functionality
+  Widget _buildWorkoutLogItem(
+    BuildContext context,
+    WorkoutLogModel log,
+    DashboardProvider provider,
+  ) {
+    final exerciseName = log.exercise?.name ?? 'Bài tập';
+    final duration = log.durationMin;
+    final calories = log.caloriesBurned;
+    
+    // Format time
+    final time = log.loggedAt;
+    final timeStr = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
+    return Dismissible(
+      key: Key(log.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(Icons.delete, color: Colors.red.shade600),
+      ),
+      confirmDismiss: (direction) async {
+        // Show confirmation dialog
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(
+              'Xóa bài tập?',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+            ),
+            content: Text(
+              'Bạn có chắc muốn xóa "$exerciseName"?',
+              style: GoogleFonts.poppins(),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text('Hủy', style: GoogleFonts.poppins()),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: Text('Xóa', style: GoogleFonts.poppins()),
+              ),
+            ],
+          ),
+        );
+        return confirmed ?? false;
+      },
+      onDismissed: (direction) async {
+        final success = await provider.deleteWorkoutLogEntry(log.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(success 
+                  ? 'Đã xóa bài tập' 
+                  : 'Lỗi xóa bài tập'),
+              backgroundColor: success ? Colors.green : Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Row(
+          children: [
+            // Exercise icon
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.fitness_center,
+                color: Colors.orange.shade600,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Exercise details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    exerciseName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.timer, size: 14, color: Colors.grey.shade600),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${duration.toStringAsFixed(0)} phút',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(Icons.local_fire_department, 
+                           size: 14, color: Colors.orange.shade600),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${calories.toStringAsFixed(0)} calo',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // Time
+            Text(
+              timeStr,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.grey.shade500,
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Delete button (alternative to swipe)
+            IconButton(
+              icon: Icon(Icons.delete_outline, 
+                        color: Colors.grey.shade400, size: 20),
+              onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Text(
+                      'Xóa bài tập?',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                    ),
+                    content: Text(
+                      'Bạn có chắc muốn xóa "$exerciseName"?',
+                      style: GoogleFonts.poppins(),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: Text('Hủy', style: GoogleFonts.poppins()),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                        child: Text('Xóa', style: GoogleFonts.poppins()),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true && mounted) {
+                  final success = await provider.deleteWorkoutLogEntry(log.id);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(success 
+                            ? 'Đã xóa bài tập' 
+                            : 'Lỗi xóa bài tập'),
+                        backgroundColor: success ? Colors.green : Colors.red,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildQuickAddButton({
     required BuildContext context,
     required String label,
@@ -602,13 +933,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
       },
       child: Container(
-        width: 80, // Fixed width for all buttons
-        height: 110, // Fixed height to accommodate icon, label, and status
+        width: 80,
+        height: 110,
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+          color: color.withOpacity(0.09),
+          borderRadius: HumanizeUI.asymmetricRadius16,
+          border: Border.all(color: color.withOpacity(0.22), width: 1.4),
+          boxShadow: HumanizeUI.softElevation(
+            baseColor: Colors.white,
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -617,8 +951,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
+                color: color.withOpacity(0.18),
                 shape: BoxShape.circle,
+                boxShadow: HumanizeUI.softElevation(
+                  baseColor: Colors.white,
+                ),
               ),
               child: Icon(icon, color: color, size: 26),
             ),
@@ -641,7 +978,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: HumanizeUI.asymmetricRadius16,
                 ),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
@@ -663,7 +1000,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.cyan.shade100,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: HumanizeUI.asymmetricRadius16,
                 ),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
@@ -685,7 +1022,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.red.shade100,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: HumanizeUI.asymmetricRadius16,
                 ),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
@@ -766,11 +1103,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Container(
       key: key,
-      child: Card(
-      elevation: 2,
+      child: Container(
+        decoration: BoxDecoration(
       color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
+          borderRadius: HumanizeUI.asymmetricRadius20,
+          boxShadow: HumanizeUI.softElevation(baseColor: Colors.white),
+        ),
           padding: const EdgeInsets.all(16.0),
         child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -782,7 +1120,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: Colors.cyan.shade50,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: HumanizeUI.asymmetricRadius16,
                     ),
                     child: Icon(Icons.water_drop, color: Colors.cyan.shade600, size: 24),
                   ),
@@ -858,7 +1196,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-        ),
       ),
     );
   }
@@ -879,7 +1216,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.cyan.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: HumanizeUI.asymmetricRadius24,
+          boxShadow: HumanizeUI.softElevation(baseColor: Colors.white),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -934,9 +1272,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final double targetFat = _customFatTarget ?? defaultFatTarget;
     final double targetCarb = _customCarbTarget ?? defaultCarbTarget;
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: HumanizeUI.asymmetricRadius20,
+        boxShadow: HumanizeUI.softElevation(baseColor: Colors.white),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -949,7 +1290,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: HumanizeUI.asymmetricRadius16,
                   ),
                   child: Icon(Icons.analytics, color: Colors.green.shade600, size: 24),
                 ),
@@ -1406,57 +1747,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Profile Avatar with personalization
-  Widget _buildProfileAvatar(dynamic profile) {
-    // Check if profile has an avatar image URL (extensible for future implementation)
-    // If ProfileModel is extended with avatarUrl in the future, use it here
-    // String? avatarUrl = profile?.avatarUrl;
-    // For now, we'll always show the colored silhouette
-
-    // Generate a consistent color based on userId or use default
-    MaterialColor avatarColor;
-    if (profile != null && profile.userId != null) {
-      // Generate a color from userId hash for consistency
-      final hash = profile.userId.hashCode;
-      final colors = [
-        Colors.green,
-        Colors.blue,
-        Colors.purple,
-        Colors.orange,
-        Colors.teal,
-        Colors.indigo,
-        Colors.pink,
-        Colors.amber,
-      ];
-      avatarColor = colors[hash.abs() % colors.length];
-    } else {
-      avatarColor = Colors.green;
-    }
-
-    // Show colored silhouette with gradient
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: avatarColor,
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              avatarColor.shade400,
-              avatarColor.shade700,
-            ],
-          ),
-        ),
-        child: Icon(
-          Icons.person,
-          color: Colors.white,
-          size: 20,
-        ),
-      ),
-    );
-  }
 }
 
 // Scale Animation Widget for Micro-interactions
@@ -1693,4 +1983,123 @@ class _CustomWaterDialogState extends State<_CustomWaterDialog> {
       ],
     );
   }
+}
+
+// Custom painter for elegant segmented circular ring
+// Based on picture 2: Dark green (top left), Orange (right), Light green (bottom left)
+// Circle is open at bottom left for elegant appearance
+class _SegmentedRingPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = 140.0;
+    final strokeWidth = 20.0; // Slightly thicker for elegance
+    
+    // Define segments matching picture 2 - elegant and smooth
+    // Note: Flutter's drawArc: 0° = right (3 o'clock), goes counterclockwise
+    // To start from top (12 o'clock), we subtract 90° (π/2)
+    // Circle is open at bottom left (gap between ~7-8 o'clock)
+    final segments = [
+      // Dark green segment - top left (from ~11 o'clock to ~1 o'clock)
+      // Approximately 30-35% of circle
+      _Segment(
+        startAngle: 330 * (math.pi / 180), // -30 degrees (11 o'clock position)
+        sweepAngle: 60 * (math.pi / 180), // 60 degrees
+        color: const Color(0xFF2E7D32), // Dark green
+      ),
+      // Orange segment - right side (from ~1 o'clock to ~5 o'clock)
+      // Approximately 20-25% of circle
+      _Segment(
+        startAngle: 30 * (math.pi / 180), // 30 degrees (1 o'clock position)
+        sweepAngle: 120 * (math.pi / 180), // 120 degrees
+        color: Colors.orange.shade500, // Slightly deeper orange for elegance
+      ),
+      // Light green segment - bottom left (from ~5 o'clock to gap at ~7-8 o'clock)
+      // Approximately 40-45% of circle, ending before the gap
+      _Segment(
+        startAngle: 150 * (math.pi / 180), // 150 degrees (5 o'clock position)
+        sweepAngle: 120 * (math.pi / 180), // 120 degrees (leaving ~15° gap)
+        color: const Color(0xFFC8E6C9), // Light green
+      ),
+    ];
+    
+    // Draw each segment with smooth, elegant styling
+    for (final segment in segments) {
+      final paint = Paint()
+        ..color = segment.color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round; // Rounded caps for smoothness
+      
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        segment.startAngle - (math.pi / 2), // Adjust to start from top (12 o'clock)
+        segment.sweepAngle,
+        false,
+        paint,
+      );
+    }
+    
+    // Draw elegant white separator lines between segments (thinner and subtle)
+    final separatorPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5 // Thinner for elegance
+      ..strokeCap = StrokeCap.round;
+    
+    final innerRadius = radius - strokeWidth / 2;
+    final outerRadius = radius + strokeWidth / 2;
+    
+    // Draw separators at segment boundaries (only where segments meet)
+    final separatorAngles = [
+      330 * (math.pi / 180) - (math.pi / 2), // Between dark green and orange (1 o'clock)
+      150 * (math.pi / 180) - (math.pi / 2), // Between orange and light green (5 o'clock)
+    ];
+    
+    for (final angle in separatorAngles) {
+      final x1 = center.dx + innerRadius * math.cos(angle);
+      final y1 = center.dy + innerRadius * math.sin(angle);
+      final x2 = center.dx + outerRadius * math.cos(angle);
+      final y2 = center.dy + outerRadius * math.sin(angle);
+      
+      canvas.drawLine(
+        Offset(x1, y1),
+        Offset(x2, y2),
+        separatorPaint,
+      );
+    }
+    
+    // Draw elegant white caps at the open ends (gap at bottom left)
+    final capPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    
+    // Left cap (start of dark green segment at top)
+    final leftCapAngle = 330 * (math.pi / 180) - (math.pi / 2);
+    final leftCapX = center.dx + radius * math.cos(leftCapAngle);
+    final leftCapY = center.dy + radius * math.sin(leftCapAngle);
+    canvas.drawCircle(Offset(leftCapX, leftCapY), strokeWidth / 2, capPaint);
+    
+    // Right cap (end of light green segment, before gap at bottom left)
+    final rightCapAngle = 270 * (math.pi / 180) - (math.pi / 2); // End of light green (7 o'clock, before gap)
+    final rightCapX = center.dx + radius * math.cos(rightCapAngle);
+    final rightCapY = center.dy + radius * math.sin(rightCapAngle);
+    canvas.drawCircle(Offset(rightCapX, rightCapY), strokeWidth / 2, capPaint);
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// Helper class for segment definition
+class _Segment {
+  final double startAngle;
+  final double sweepAngle;
+  final Color color;
+  
+  _Segment({
+    required this.startAngle,
+    required this.sweepAngle,
+    required this.color,
+  });
 }

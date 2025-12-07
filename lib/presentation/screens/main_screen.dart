@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:nutri_mate_ui/config/theme.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'profile/profile_screen.dart';
 import 'food_search/food_search_screen.dart';
@@ -137,7 +138,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
       ),
       bottomNavigationBar: BottomAppBar(
         color: Colors.white,
-        elevation: 10,
+        elevation: 0,
         padding: EdgeInsets.zero,
         child: SizedBox(
           height: 70,
@@ -179,12 +180,12 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
         width: 64,
         height: 64,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Colors.green.shade600,
-              Colors.green.shade700,
+              Color(0xFF1B5E20),
+              Color(0xFF2E7D32),
             ],
           ),
           shape: BoxShape.circle,
@@ -192,14 +193,9 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
             color: Colors.white,
             width: 2.0,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.green.withOpacity(0.5),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-              spreadRadius: 1,
-            ),
-          ],
+          boxShadow: HumanizeUI.heroSoftElevation(
+            baseColor: HumanizeUI.paleMintTop,
+          ),
         ),
         child: Material(
           color: Colors.transparent,
@@ -325,14 +321,8 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              borderRadius: HumanizeUI.asymmetricRadius20,
+              boxShadow: HumanizeUI.softElevation(baseColor: Colors.white),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -341,7 +331,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: HumanizeUI.asymmetricRadius16,
                   ),
                   child: Icon(icon, color: color, size: 24),
                 ),

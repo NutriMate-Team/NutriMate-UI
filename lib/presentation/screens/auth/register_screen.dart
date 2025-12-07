@@ -19,6 +19,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _fullNameController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isGoogleLoading = false;
 
   @override
   void dispose() {
@@ -70,6 +71,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
           );
         }
       });
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    if (_isGoogleLoading) return;
+    setState(() => _isGoogleLoading = true);
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.signInWithGoogle();
+
+    if (!mounted) return;
+
+    setState(() => _isGoogleLoading = false);
+
+    if (authProvider.status == AuthStatus.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Google Sign-In thành công!')),
+      );
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+    } else if (authProvider.status == AuthStatus.error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 
@@ -297,6 +326,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                         ),
                         const SizedBox(height: 24),
+                        _GoogleButton(
+                          onPressed: _signInWithGoogle,
+                          isLoading: _isGoogleLoading,
+                          label: 'Đăng ký bằng Google',
+                        ),
+                        const SizedBox(height: 16),
                         // Login link
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -327,6 +362,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoogleButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  final bool isLoading;
+  final String label;
+
+  const _GoogleButton({
+    required this.onPressed,
+    required this.isLoading,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: isLoading ? null : onPressed,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        side: const BorderSide(color: Color(0xFF4285F4)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        foregroundColor: const Color(0xFF4285F4),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isLoading)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            const Icon(Icons.g_mobiledata, size: 28),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

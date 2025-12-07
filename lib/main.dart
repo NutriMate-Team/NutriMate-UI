@@ -18,6 +18,7 @@ import 'data/repositories/auth_repository_impl.dart';
 import 'domain/repositories/auth_repository.dart';
 import 'domain/usecases/login_user.dart';
 import 'domain/usecases/register_user.dart';
+import 'domain/usecases/validate_token.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/screens/auth/register_screen.dart';
 
@@ -84,7 +85,7 @@ void main() async {
   // === MANUAL DI (Dependency Injection) ===
 
   // --- AUTH ---
-  final authRemoteDatasource = AuthRemoteDatasourceImpl(httpClient);
+  final authRemoteDatasource = AuthRemoteDatasourceImpl(httpClient, storageService);
   final authLocalDataSource = AuthLocalDataSourceImpl(sharedPreferences);
   final authRepository = AuthRepositoryImpl(
     remoteDatasource: authRemoteDatasource, 
@@ -93,10 +94,13 @@ void main() async {
   );
   final loginUser = LoginUser(authRepository);
   final registerUser = RegisterUser(authRepository);
+  final validateToken = ValidateToken(authRepository);
   final authProvider = AuthProvider(
     loginUser: loginUser,
     registerUser: registerUser,
     storageService: storageService,
+    sharedPreferences: sharedPreferences,
+    validateToken: validateToken,
   );
   
   // --- DASHBOARD ---
@@ -107,9 +111,6 @@ void main() async {
     remoteDatasource: dashboardRemoteDatasource, networkInfo: networkInfo,
   );
   final getDashboardSummary = GetDashboardSummary(dashboardRepository);
-  final dashboardProvider = DashboardProvider(
-    getDashboardSummary: getDashboardSummary,
-  );
 
   // --- PROFILE ---
   final profileRemoteDatasource = ProfileRemoteDatasourceImpl(
@@ -120,9 +121,11 @@ void main() async {
   );
   final getUserProfile = GetUserProfile(profileRepository);
   final updateUserProfile = UpdateUserProfile(profileRepository);
+  final updateProfilePicture = UpdateProfilePicture(profileRepository);
   final profileProvider = ProfileProvider(
     getUserProfile: getUserProfile,
     updateUserProfile: updateUserProfile,
+    updateProfilePicture: updateProfilePicture,
   );
 
   // --- FOOD ---
@@ -167,16 +170,25 @@ void main() async {
   );
   final getExercises = GetExercises(workoutRepository);
   final createWorkoutLog = CreateWorkoutLog(workoutRepository);
+  final getTodayWorkoutLogs = GetTodayWorkoutLogs(workoutRepository);
+  final deleteWorkoutLog = DeleteWorkoutLog(workoutRepository);
   final workoutProvider = WorkoutProvider(
     getExercises: getExercises,
     createWorkoutLog: createWorkoutLog,
+  );
+  
+  // Update dashboard provider with workout log use cases
+  final dashboardProvider = DashboardProvider(
+    getDashboardSummary: getDashboardSummary,
+    getTodayWorkoutLogs: getTodayWorkoutLogs,
+    deleteWorkoutLog: deleteWorkoutLog,
   );
 
   // --- STREAK ---
   final streakProvider = StreakProvider();
 
-  // Tự động đăng nhập
-  await authProvider.tryAutoLogin(); 
+  // Check authentication status on app startup
+  await authProvider.checkAuthStatus(); 
   
   runApp(
     MultiProvider(

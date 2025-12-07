@@ -7,6 +7,7 @@ class ProfileModel {
   final double? bmi;
   final String? goalStartDate; // ISO date string (YYYY-MM-DD)
   final double? weeklyGoalRate; // kg per week
+  final String? profilePictureUrl; // User's profile picture URL
 
   ProfileModel({
     required this.userId,
@@ -17,6 +18,7 @@ class ProfileModel {
     this.bmi,
     this.goalStartDate,
     this.weeklyGoalRate,
+    this.profilePictureUrl,
   });
 
   factory ProfileModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class ProfileModel {
       bmi: (json['bmi'] as num?)?.toDouble(),
       goalStartDate: json['goalStartDate'] as String?,
       weeklyGoalRate: (json['weeklyGoalRate'] as num?)?.toDouble(),
+      profilePictureUrl: json['profilePictureUrl'] as String?,
     );
   }
 }
