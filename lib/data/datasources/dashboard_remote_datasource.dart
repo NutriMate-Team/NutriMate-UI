@@ -39,7 +39,16 @@ class DashboardRemoteDatasourceImpl implements DashboardRemoteDatasource {
       return DashboardModel.fromJson(json.decode(response.body));
     } else {
       final errorJson = json.decode(response.body);
-      throw ServerException(errorJson['message'] ?? 'Failed to load summary');
+      final dynamic rawMessage = errorJson['message'];
+      final String message;
+      if (rawMessage == null) {
+        message = 'Failed to load summary';
+      } else if (rawMessage is List) {
+        message = rawMessage.join(', ');
+      } else {
+        message = rawMessage.toString();
+      }
+      throw ServerException(message);
     }
   }
 }

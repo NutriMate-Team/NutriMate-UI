@@ -11,6 +11,11 @@ class DashboardModel {
   final double totalProtein;
   final double totalFat;
   final double totalCarbs;
+  
+  // Macro targets từ backend
+  final double? targetProtein;
+  final double? targetFat;
+  final double? targetCarbs;
 
   DashboardModel({
     required this.date,
@@ -24,6 +29,9 @@ class DashboardModel {
     this.totalProtein = 0,
     this.totalFat = 0,
     this.totalCarbs = 0,
+    this.targetProtein,
+    this.targetFat,
+    this.targetCarbs,
   });
 
   factory DashboardModel.fromJson(Map<String, dynamic> json) {
@@ -40,6 +48,11 @@ class DashboardModel {
       totalProtein: (json['totalProtein'] as num? ?? 0).toDouble(),
       totalFat: (json['totalFat'] as num? ?? 0).toDouble(),
       totalCarbs: (json['totalCarbs'] as num? ?? 0).toDouble(),
+      
+      // Macro targets từ backend
+      targetProtein: (json['targetProtein'] as num?)?.toDouble(),
+      targetFat: (json['targetFat'] as num?)?.toDouble(),
+      targetCarbs: (json['targetCarbs'] as num?)?.toDouble(),
     );
   }
 }

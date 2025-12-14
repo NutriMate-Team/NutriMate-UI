@@ -34,11 +34,20 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
     if (response.statusCode == 201) {
       final jsonResponse = json.decode(response.body);
       // Giả định NestJS trả về User Entity trực tiếp
-      return Users.fromJson(jsonResponse); 
+      return Users.fromJson(jsonResponse);
     } else {
       // Xử lý lỗi (Email đã tồn tại, validation...)
       final errorJson = json.decode(response.body);
-      throw ServerException(errorJson['message'] ?? 'Failed to sign up');
+      final dynamic rawMessage = errorJson['message'];
+      final String message;
+      if (rawMessage == null) {
+        message = 'Failed to sign up';
+      } else if (rawMessage is List) {
+        message = rawMessage.join(', ');
+      } else {
+        message = rawMessage.toString();
+      }
+      throw ServerException(message);
     }
   }
 
@@ -56,17 +65,26 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
     if (response.statusCode == 200) {
       final jsonResponse = json.decode(response.body);
-      
+
       final token = jsonResponse['access_token'];
 
       if (token != null) {
-        return token; 
+        return token;
       } else {
         throw ServerException('Login failed: Token not found in response payload');
       }
     } else {
       final errorJson = json.decode(response.body);
-      throw ServerException(errorJson['message'] ?? 'Invalid email or password');
+      final dynamic rawMessage = errorJson['message'];
+      final String message;
+      if (rawMessage == null) {
+        message = 'Invalid email or password';
+      } else if (rawMessage is List) {
+        message = rawMessage.join(', ');
+      } else {
+        message = rawMessage.toString();
+      }
+      throw ServerException(message);
     }
   }
 
@@ -92,7 +110,16 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
       throw ServerException('Token expired or invalid');
     } else {
       final errorJson = json.decode(response.body);
-      throw ServerException(errorJson['message'] ?? 'Token validation failed');
+      final dynamic rawMessage = errorJson['message'];
+      final String message;
+      if (rawMessage == null) {
+        message = 'Token validation failed';
+      } else if (rawMessage is List) {
+        message = rawMessage.join(', ');
+      } else {
+        message = rawMessage.toString();
+      }
+      throw ServerException(message);
     }
   }
 }

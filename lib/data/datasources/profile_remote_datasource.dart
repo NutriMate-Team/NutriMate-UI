@@ -105,7 +105,14 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
       
       try {
         final errorJson = json.decode(errorBody);
-        errorMessage = errorJson['message'] ?? errorMessage;
+        final dynamic rawMessage = errorJson['message'];
+        if (rawMessage == null) {
+          errorMessage = errorMessage;
+        } else if (rawMessage is List) {
+          errorMessage = rawMessage.join(', ');
+        } else {
+          errorMessage = rawMessage.toString();
+        }
       } catch (e) {
         // If JSON parsing fails, use the raw response body or status code
         errorMessage = 'Upload failed with status ${response.statusCode}';

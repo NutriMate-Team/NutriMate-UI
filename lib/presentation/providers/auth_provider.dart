@@ -121,27 +121,34 @@ class AuthProvider extends ChangeNotifier {
     _status = AuthStatus.loading;
     notifyListeners();
 
-    final result = await registerUser(
-      email: email,
-      password: password,
-      // LƯU Ý: Đảm bảo tên trường khớp với UseCase của bạn (fullname/fullName)
-      fullname: fullName, 
-    );
+    try {
+      final result = await registerUser(
+        email: email,
+        password: password,
+        // LƯU Ý: Đảm bảo tên trường khớp với UseCase của bạn (fullname/fullName)
+        fullname: fullName,
+      );
 
-    result.fold(
-      (failure) {
-        _status = AuthStatus.error;
-        _errorMessage = (failure is ServerFailure)
-            ? failure.message
-            : 'Connection error or data execute';
-      },
-      (user) {
-        _status = AuthStatus.success;
-        _users = user; 
-        _errorMessage = '';
-      },
-    );
-    notifyListeners();
+      result.fold(
+        (failure) {
+          _status = AuthStatus.error;
+          _errorMessage = (failure is ServerFailure)
+              ? failure.message
+              : 'Connection error or data execute';
+        },
+        (user) {
+          _status = AuthStatus.success;
+          _users = user;
+          _errorMessage = '';
+        },
+      );
+    } catch (e, st) {
+      // Ensure any unexpected exception sets the provider to an error state
+      _status = AuthStatus.error;
+      _errorMessage = e.toString();
+    } finally {
+      notifyListeners();
+    }
   } 
 
 

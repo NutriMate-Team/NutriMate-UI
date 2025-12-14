@@ -101,7 +101,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (mounted) {
       if (success) {
-        Provider.of<DashboardProvider>(context, listen: false).fetchSummary();
+        // Refresh dashboard để lấy recommendation mới (backend đã await recommendation generation)
+        await Provider.of<DashboardProvider>(context, listen: false).fetchSummary();
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

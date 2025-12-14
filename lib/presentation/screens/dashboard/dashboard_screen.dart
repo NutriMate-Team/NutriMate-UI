@@ -178,28 +178,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final double consumed = summary.caloriesConsumed;
             final double burned = summary.caloriesBurned;
             
-            // CRITICAL: Calculate net calories (consumed - burned) for accurate progress
-            // Net calories = calories consumed minus calories burned from exercise
-            final double netCalories = consumed - burned;
+            // FIX: If no food has been consumed, the progress should be explicitly zero,
+            // even if calories have been burned. This addresses the visual bug where the
+            // circle is partially filled when 'Đã nạp' is 0.
+            double percent;
+            double netCalories;
+            double remaining;
             
-            // SIMPLIFIED: Use backend-calculated remainingCalories (more reliable)
-            // Backend already calculates: remainingCalories = targetCalories - netCalories
-            // This ensures consistency with backend logic and reduces frontend calculation errors
-            final double remaining = summary.remainingCalories ?? (target - netCalories);
-            
-            // CRITICAL: Calculate progress percentage using NET calories, not just consumed
-            // Formula: (Net Calories Consumed) / (Target Calories)
-            // This ensures exercise is properly accounted for in the progress calculation
-            double percent = (netCalories / target);
-            
-            // Clamp percent to valid range (0.0 to 1.0) for drawing purposes
-            // Drawing functions and color logic expect values between 0.0 and 1.0
-            // Note: Over-consumption is detected via 'remaining < 0' in color logic
-            // Negative net calories (high burn) -> clamp to 0%
-            if (percent < 0) percent = 0.0;
-            // Over-consumption (percent > 1.0) -> clamp to 100% for drawing
-            // The actual excess is still visible via negative 'remaining' value
-            if (percent > 1.0) percent = 1.0;
+            if (consumed == 0) {
+              // No food consumed = no progress, regardless of exercise
+              percent = 0.0;
+              netCalories = 0;
+              remaining = target; // Full target remaining
+            } else {
+              // CRITICAL: Calculate net calories (consumed - burned) for accurate progress
+              // Net calories = calories consumed minus calories burned from exercise
+              netCalories = consumed - burned;
+              
+              // CRITICAL: Calculate progress percentage using NET calories, not just consumed
+              // Formula: (Net Calories Consumed) / (Target Calories)
+              // This ensures exercise is properly accounted for in the progress calculation
+              percent = (netCalories / target);
+              
+              // Clamp percent to valid range (0.0 to 1.0) for drawing purposes
+              // Drawing functions and color logic expect values between 0.0 and 1.0
+              // Note: Over-consumption is detected via 'remaining < 0' in color logic
+              // Negative net calories (high burn) -> clamp to 0%
+              if (percent < 0) percent = 0.0;
+              // Over-consumption (percent > 1.0) -> clamp to 100% for drawing
+              // The actual excess is still visible via negative 'remaining' value
+              if (percent > 1.0) percent = 1.0;
+              
+              // SIMPLIFIED: Use backend-calculated remainingCalories (more reliable)
+              // Backend already calculates: remainingCalories = targetCalories - netCalories
+              // This ensures consistency with backend logic and reduces frontend calculation errors
+              remaining = summary.remainingCalories ?? (target - netCalories);
+            }
+
+            // Determine progress color based on remaining calories status
+            // Goal met or exceeded (remaining <= 0) -> Gray
+            // Goal not met (remaining > 0) -> Blue
+            final Color progressColor = remaining <= 0 
+                ? Colors.grey.shade400  // Gray when goal met/exceeded
+                : Colors.blue;            // Blue when working towards goal
 
             return AnimatedOpacity(
               opacity: 1.0,
@@ -213,7 +234,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _buildCalorieStatsRow(context, target, consumed, summary.caloriesBurned),
                     const SizedBox(height: 24),
                     // --- BIỂU ĐỒ TRÒN VỚI FIRE ICON (HERO SECTION) ---
-                    _buildCalorieProgressIndicator(remaining, percent, consumed, target, summary.caloriesBurned),
+                    _buildCalorieProgressIndicator(remaining, percent, consumed, target, summary.caloriesBurned, progressColor),
                   
                   const SizedBox(height: 24),
                   
@@ -400,32 +421,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // Circular Progress Indicator với Fire Icon - Hero Section
-  Widget _buildCalorieProgressIndicator(double remaining, double percent, double consumed, double target, double burned) {
-    // Determine warning states
-    final bool isOverconsumption = remaining < 0;
-    final bool isNearGoal = remaining >= 0 && remaining < 200;
-    
-    // Dynamic colors based on warning states
-    Color flameColor;
-    Color remainingTextColor;
-    
-    if (isOverconsumption) {
-      // Overconsumption: Red
-      flameColor = Colors.red.shade600;
-      remainingTextColor = Colors.red.shade700;
-    } else if (isNearGoal) {
-      // Near goal warning: Yellow/Orange
-      flameColor = Colors.orange.shade600;
-      remainingTextColor = Colors.orange.shade700;
-    } else {
-      // Normal: Dynamic flame based on progress
-      flameColor = percent < 0.5 
-          ? Colors.orange.shade600 
-          : percent < 0.8 
-              ? Colors.deepOrange.shade600 
-              : Colors.red.shade600;
-      remainingTextColor = const Color(0xFF1B5E20); // Darker forest green for text
-    }
+  Widget _buildCalorieProgressIndicator(double remaining, double percent, double consumed, double target, double burned, Color progressColor) {
+    // Determine icon and text colors based on progress status
+    final Color flameColor = progressColor;
+    final Color remainingTextColor = remaining <= 0 
+        ? Colors.grey.shade700  // Gray text when goal met/exceeded
+        : const Color(0xFF1B5E20); // Dark green text when working towards goal
     
     return Hero(
       tag: 'calorie_progress',
@@ -439,10 +440,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Stack(
               alignment: Alignment.center,
               children: [
-            // Segmented circular ring
+            // Single-color progress ring based on percent with dynamic color
             CustomPaint(
               size: const Size(280, 280),
-              painter: _SegmentedRingPainter(),
+              painter: _ProgressRingPainter(percent: percent, progressColor: progressColor),
             ),
             // Center content with fire icon
             Column(
@@ -1262,11 +1263,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final double currentFat = summary.totalFat;
     final double currentCarb = summary.totalCarbs;
 
-    // Tính toán MỤC TIÊU dựa trên Calo (Công thức giả định: 30% P - 25% F - 45% C)
+    // SỬ DỤNG MACRO TARGETS TỪ BACKEND (đã tính sẵn dựa trên mục tiêu và vận động)
+    // Nếu backend chưa có, fallback về tính toán cũ
     final double targetCal = summary.targetCalories ?? 2000;
-    final double defaultProteinTarget = (targetCal * 0.30) / 4;
-    final double defaultFatTarget = (targetCal * 0.25) / 9;
-    final double defaultCarbTarget = (targetCal * 0.45) / 4;
+    
+    double defaultProteinTarget, defaultFatTarget, defaultCarbTarget;
+    
+    if (summary.targetProtein != null && summary.targetFat != null && summary.targetCarbs != null) {
+      // Sử dụng macro targets từ backend (đã tính đúng dựa trên mục tiêu và vận động)
+      defaultProteinTarget = summary.targetProtein!;
+      defaultFatTarget = summary.targetFat!;
+      defaultCarbTarget = summary.targetCarbs!;
+    } else {
+      // Fallback: Tính toán cũ nếu backend chưa có
+      // Công thức mặc định: 30% P - 25% F - 45% C
+      defaultProteinTarget = (targetCal * 0.30) / 4;
+      defaultFatTarget = (targetCal * 0.25) / 9;
+      defaultCarbTarget = (targetCal * 0.45) / 4;
+    }
 
     final double targetProtein = _customProteinTarget ?? defaultProteinTarget;
     final double targetFat = _customFatTarget ?? defaultFatTarget;
@@ -1987,119 +2001,68 @@ class _CustomWaterDialogState extends State<_CustomWaterDialog> {
 
 // Custom painter for elegant segmented circular ring
 // Based on picture 2: Dark green (top left), Orange (right), Light green (bottom left)
-// Circle is open at bottom left for elegant appearance
-class _SegmentedRingPainter extends CustomPainter {
+// Single-color progress ring painter
+class _ProgressRingPainter extends CustomPainter {
+  final double percent;
+  final Color progressColor;
+  
+  _ProgressRingPainter({required this.percent, required this.progressColor});
+  
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = 140.0;
-    final strokeWidth = 20.0; // Slightly thicker for elegance
+    final strokeWidth = 20.0;
     
-    // Define segments matching picture 2 - elegant and smooth
-    // Note: Flutter's drawArc: 0° = right (3 o'clock), goes counterclockwise
+    // Full circle (360 degrees) - complete ring without gaps
+    // Flutter's drawArc: 0° = right (3 o'clock), goes counterclockwise
     // To start from top (12 o'clock), we subtract 90° (π/2)
-    // Circle is open at bottom left (gap between ~7-8 o'clock)
-    final segments = [
-      // Dark green segment - top left (from ~11 o'clock to ~1 o'clock)
-      // Approximately 30-35% of circle
-      _Segment(
-        startAngle: 330 * (math.pi / 180), // -30 degrees (11 o'clock position)
-        sweepAngle: 60 * (math.pi / 180), // 60 degrees
-        color: const Color(0xFF2E7D32), // Dark green
-      ),
-      // Orange segment - right side (from ~1 o'clock to ~5 o'clock)
-      // Approximately 20-25% of circle
-      _Segment(
-        startAngle: 30 * (math.pi / 180), // 30 degrees (1 o'clock position)
-        sweepAngle: 120 * (math.pi / 180), // 120 degrees
-        color: Colors.orange.shade500, // Slightly deeper orange for elegance
-      ),
-      // Light green segment - bottom left (from ~5 o'clock to gap at ~7-8 o'clock)
-      // Approximately 40-45% of circle, ending before the gap
-      _Segment(
-        startAngle: 150 * (math.pi / 180), // 150 degrees (5 o'clock position)
-        sweepAngle: 120 * (math.pi / 180), // 120 degrees (leaving ~15° gap)
-        color: const Color(0xFFC8E6C9), // Light green
-      ),
-    ];
+    final startAngle = -math.pi / 2; // Start from top (12 o'clock)
+    final sweepAngle = 2 * math.pi; // 360 degrees (full circle)
     
-    // Draw each segment with smooth, elegant styling
-    for (final segment in segments) {
-      final paint = Paint()
-        ..color = segment.color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round; // Rounded caps for smoothness
-      
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        segment.startAngle - (math.pi / 2), // Adjust to start from top (12 o'clock)
-        segment.sweepAngle,
-        false,
-        paint,
-      );
-    }
+    // Calculate progress sweep angle
+    final progressSweepAngle = sweepAngle * percent.clamp(0.0, 1.0);
     
-    // Draw elegant white separator lines between segments (thinner and subtle)
-    final separatorPaint = Paint()
-      ..color = Colors.white
+    // FIX: Always draw full background ring first to ensure seamless base
+    // This provides the complete track as a foundation
+    final backgroundPaint = Paint()
+      ..color = Colors.grey.shade200
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5 // Thinner for elegance
+      ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
     
-    final innerRadius = radius - strokeWidth / 2;
-    final outerRadius = radius + strokeWidth / 2;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      backgroundPaint,
+    );
     
-    // Draw separators at segment boundaries (only where segments meet)
-    final separatorAngles = [
-      330 * (math.pi / 180) - (math.pi / 2), // Between dark green and orange (1 o'clock)
-      150 * (math.pi / 180) - (math.pi / 2), // Between orange and light green (5 o'clock)
-    ];
-    
-    for (final angle in separatorAngles) {
-      final x1 = center.dx + innerRadius * math.cos(angle);
-      final y1 = center.dy + innerRadius * math.sin(angle);
-      final x2 = center.dx + outerRadius * math.cos(angle);
-      final y2 = center.dy + outerRadius * math.sin(angle);
+    // Draw progress ring on top of background (filled portion)
+    // This ensures perfect alignment and seamless overlay
+    if (percent > 0) {
+      final progressPaint = Paint()
+        ..color = progressColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round; // Round caps for smooth appearance
       
-      canvas.drawLine(
-        Offset(x1, y1),
-        Offset(x2, y2),
-        separatorPaint,
+      // Draw progress arc from start, overlaying the background
+      // The progress paint will completely cover the background where it overlaps
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        progressSweepAngle,
+        false,
+        progressPaint,
       );
     }
-    
-    // Draw elegant white caps at the open ends (gap at bottom left)
-    final capPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    
-    // Left cap (start of dark green segment at top)
-    final leftCapAngle = 330 * (math.pi / 180) - (math.pi / 2);
-    final leftCapX = center.dx + radius * math.cos(leftCapAngle);
-    final leftCapY = center.dy + radius * math.sin(leftCapAngle);
-    canvas.drawCircle(Offset(leftCapX, leftCapY), strokeWidth / 2, capPaint);
-    
-    // Right cap (end of light green segment, before gap at bottom left)
-    final rightCapAngle = 270 * (math.pi / 180) - (math.pi / 2); // End of light green (7 o'clock, before gap)
-    final rightCapX = center.dx + radius * math.cos(rightCapAngle);
-    final rightCapY = center.dy + radius * math.sin(rightCapAngle);
-    canvas.drawCircle(Offset(rightCapX, rightCapY), strokeWidth / 2, capPaint);
   }
   
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ProgressRingPainter oldDelegate) {
+    return oldDelegate.percent != percent || oldDelegate.progressColor != progressColor;
+  }
 }
 
-// Helper class for segment definition
-class _Segment {
-  final double startAngle;
-  final double sweepAngle;
-  final Color color;
-  
-  _Segment({
-    required this.startAngle,
-    required this.sweepAngle,
-    required this.color,
-  });
-}
